@@ -1132,6 +1132,36 @@ function extractFacebookUrlFromPath(
     return "";
   }
 
+  /*
+   * ==========================================================
+   * Facebook Group multi_permalinks
+   *
+   * ตัวอย่าง:
+   *
+   * https://www.facebook.com/groups/123456789
+   * ?multi_permalinks=987654321
+   *
+   * แปลงเป็น:
+   *
+   * https://www.facebook.com/groups/123456789/permalink/987654321
+   * ==========================================================
+   */
+
+  try {
+    const facebookParsed =
+      new URL(facebookUrl);
+
+    const normalized =
+      normalizeFacebookGroupMultiPermalink(
+        facebookParsed.pathname,
+        facebookParsed.search
+      );
+
+    if (normalized) {
+      return normalized;
+    }
+  } catch {}
+
   return facebookUrl;
 }
 
@@ -2645,15 +2675,49 @@ form.addEventListener(
     try {
 
       const facebookUrl =
-        new URL(value);
+  new URL(value);
 
-      const c2zUrl =
-        window.location.origin +
-        facebookUrl.pathname +
-        facebookUrl.search;
+let c2zUrl =
+  window.location.origin +
+  facebookUrl.pathname +
+  facebookUrl.search;
 
-      resultUrl.value =
-        c2zUrl;
+// ==========================================================
+// Facebook Group multi_permalinks
+//
+// จาก:
+// https://www.facebook.com/groups/793585658907555/
+// ?multi_permalinks=1413733430226105
+//
+// เป็น:
+// https://fb.c2z.top/groups/793585658907555/permalink/1413733430226105
+// ==========================================================
+
+const groupMatch =
+  facebookUrl.pathname.match(
+    /^\/groups\/([^/]+)\/?$/i
+  );
+
+const multiPermalink =
+  facebookUrl.searchParams.get(
+    "multi_permalinks"
+  );
+
+if (
+  groupMatch &&
+  multiPermalink &&
+  /^\d+$/.test(multiPermalink)
+) {
+  c2zUrl =
+    window.location.origin +
+    "/groups/" +
+    groupMatch[1] +
+    "/permalink/" +
+    multiPermalink;
+}
+
+resultUrl.value =
+  c2zUrl;
 
       result.style.display =
         "block";
