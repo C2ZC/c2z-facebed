@@ -1614,6 +1614,7 @@ function htmlPage(data) {
 
   return `<!DOCTYPE html>
 <html lang="th">
+
 <head>
 
 <meta charset="UTF-8">
@@ -1627,12 +1628,16 @@ function htmlPage(data) {
   content="width=device-width, initial-scale=1"
 >
 
+<!-- Standard HTML metadata -->
+
 <meta
   name="description"
   content="${escapeHtml(
     safeDescription
   )}"
 >
+
+<!-- Open Graph -->
 
 <meta
   property="og:site_name"
@@ -1661,24 +1666,39 @@ function htmlPage(data) {
 <meta
   property="og:url"
   content="${escapeHtml(
-    sourceUrl
+    sourceUrl || ""
   )}"
 >
 
 ${
   image
-    ? `<meta
+    ? `
+<meta
   property="og:image"
   content="${escapeHtml(
     image
   )}"
->`
+>
+
+<meta
+  property="og:image:width"
+  content="1280"
+>
+
+<meta
+  property="og:image:height"
+  content="720"
+>
+`
     : ""
 }
 
 ${
   videoUrl
     ? `
+
+<!-- Open Graph Video -->
+
 <meta
   property="og:video"
   content="${escapeHtml(
@@ -1715,6 +1735,8 @@ ${
   content="720"
 >
 
+<!-- Twitter -->
+
 <meta
   name="twitter:card"
   content="player"
@@ -1734,12 +1756,18 @@ ${
   )}"
 >
 
+${
+  image
+    ? `
 <meta
   name="twitter:image"
   content="${escapeHtml(
-    image || ""
+    image
   )}"
 >
+`
+    : ""
+}
 
 <meta
   name="twitter:player:stream"
@@ -1774,6 +1802,7 @@ ${escapeHtml(
 </p>
 
 </body>
+
 </html>`;
 }
 
