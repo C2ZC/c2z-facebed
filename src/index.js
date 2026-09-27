@@ -157,40 +157,75 @@ function extractFacebookImages(html, baseUrl = "") {
   return images.slice(0, 10);
 }
 function extractFacebookStats(html) {
-  const stats = { reactions: "", comments: "", shares: "", views: "", creationTime: "" };
+  const stats = {
+    reactions: "",
+    comments: "",
+    shares: "",
+    views: "",
+    creationTime: "",
+  };
+
   if (typeof html !== "string" || !html) {
     return stats;
   }
+
   try {
-    const source = html.length > 3000000 ? html.slice(0, 3000000) : html;
-    const patterns = { reactions: [/"reaction_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i, /"reactionCount"\s*:\s*(\d+)/i, /"total_reaction_count"\s*:\s*(\d+)/i, /"reaction_count"\s*:\s*(\d+)/i], comments: [/"comment_count"\s*:\s*\{\s*"total_count"\s*:\s*(\d+)/i, /"commentCount"\s*:\s*(\d+)/i, /"total_comment_count"\s*:\s*(\d+)/i, /"comment_count"\s*:\s*(\d+)/i], shares: [/"share_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i, /"shareCount"\s*:\s*(\d+)/i, /"total_share_count"\s*:\s*(\d+)/i, /"share_count"\s*:\s*(\d+)/i], views: [/"view_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i, /"viewCount"\s*:\s*(\d+)/i, /"play_count"\s*:\s*(\d+)/i, /"video_view_count"\s*:\s*(\d+)/i], creationTime: [/"creation_time"\s*:\s*(\d+)/i, /"publish_time"\s*:\s*(\d+)/i] };
+    const source = html;
+
+    const patterns = {
+      reactions: [/"reaction_count"\s*:\s*\{\s*"count"\s*:\s*"?(\d+)"?/i, /"reactionCount"\s*:\s*"?(\d+)"?/i, /"total_reaction_count"\s*:\s*"?(\d+)"?/i, /"reaction_count"\s*:\s*"?(\d+)"?/i],
+
+      comments: [/"comment_count"\s*:\s*\{\s*"total_count"\s*:\s*"?(\d+)"?/i, /"commentCount"\s*:\s*"?(\d+)"?/i, /"total_comment_count"\s*:\s*"?(\d+)"?/i, /"comment_count"\s*:\s*"?(\d+)"?/i],
+
+      shares: [/"share_count"\s*:\s*\{\s*"count"\s*:\s*"?(\d+)"?/i, /"shareCount"\s*:\s*"?(\d+)"?/i, /"total_share_count"\s*:\s*"?(\d+)"?/i, /"share_count"\s*:\s*"?(\d+)"?/i],
+
+      views: [/"view_count"\s*:\s*\{\s*"count"\s*:\s*"?(\d+)"?/i, /"viewCount"\s*:\s*"?(\d+)"?/i, /"play_count"\s*:\s*"?(\d+)"?/i, /"video_view_count"\s*:\s*"?(\d+)"?/i],
+
+      creationTime: [/"creation_time"\s*:\s*"?(\d+)"?/i, /"publish_time"\s*:\s*"?(\d+)"?/i],
+    };
+
     for (const [key, regexList] of Object.entries(patterns)) {
       for (const regex of regexList) {
         const match = regex.exec(source);
+
         if (!match || !match[1]) {
           continue;
         }
+
         if (key === "creationTime") {
           let timestamp = Number(match[1]);
+
           if (!Number.isFinite(timestamp) || timestamp <= 0) {
             continue;
           }
+
           if (timestamp > 100000000000) {
             timestamp = Math.floor(timestamp / 1000);
           }
+
           try {
             const date = new Date(timestamp * 1000);
+
             if (!Number.isNaN(date.getTime())) {
               stats.creationTime = date.toISOString();
             }
-          } catch {}
+          } catch {
+            // ถ้า timestamp ผิดรูปแบบ ให้ข้ามไป
+          }
         } else {
           stats[key] = String(match[1]);
         }
+
         break;
       }
     }
-  } catch {}
+  } catch {
+    /*
+     * Test page ต้องไม่ทำให้ Worker ล้ม
+     * ถ้าดึง stats ไม่ได้ ให้คืนค่าว่างแทน
+     */
+  }
+
   return stats;
 }
 function formatTestNumber(value) {
@@ -219,16 +254,24 @@ function renderTestPage({ inputUrl = "", resolvedUrl = "", title = "", authorNam
   const pageTitle = safeAuthorName || safeTitle || "C2Z Facebed Test";
   const pageDescription = safeDescription || (safeAuthorName ? `โพสต์ Facebook โดย ${safeAuthorName}` : "ทดสอบการดึงข้อมูลจาก Facebook ด้วย C2Z Facebed");
   const statRows = [
-    ["ชื่อคนโพสต์", safeAuthorName || "ไม่พบข้อมูล"],
-    ["ชื่อโพสต์ / วิดีโอ", safeTitle || "ไม่พบข้อมูล"],
-    ["ถูกใจ / ปฏิกิริยา", formatTestNumber(safeStats.reactions)],
-    ["ความคิดเห็น", formatTestNumber(safeStats.comments)],
-    ["แชร์", formatTestNumber(safeStats.shares)],
-    ["ยอดดู", formatTestNumber(safeStats.views)],
-    ["เวลาสร้างโพสต์", safeStats.creationTime ? String(safeStats.creationTime) : "ไม่พบข้อมูล"],
-    ["URL ที่ส่ง", safeInputUrl || "—"],
-    ["URL ที่ Resolve ได้", safeResolvedUrl || "ไม่พบข้อมูล"],
-  ];
+  ["ชื่อคนโพสต์", safeAuthorName || "ไม่พบข้อมูล"],
+
+  ["ชื่อโพสต์ / วิดีโอ", safeTitle || "ไม่พบข้อมูล"],
+
+  ["ถูกใจ / ปฏิกิริยา", formatTestNumber(safeStats.reactions)],
+
+  ["ความคิดเห็น", formatTestNumber(safeStats.comments)],
+
+  ["แชร์", formatTestNumber(safeStats.shares)],
+
+  ["ยอดดู", formatTestNumber(safeStats.views)],
+
+  ["เวลาสร้างโพสต์", safeStats.creationTime ? String(safeStats.creationTime) : "ไม่พบข้อมูล"],
+
+  ["URL ที่ส่ง", safeInputUrl || "—"],
+
+  ["URL ที่ Resolve ได้", safeResolvedUrl || "ไม่พบข้อมูล"],
+];
   return `<!DOCTYPE html>
 
 <html lang="th">
