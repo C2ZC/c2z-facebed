@@ -12,10 +12,6 @@ const FACEBOOK_HEADERS = {
   "Cache-Control": "no-cache",
   "Pragma": "no-cache",
   "Upgrade-Insecure-Requests": "1",
-  "Sec-Fetch-Dest": "document",
-  "Sec-Fetch-Mode": "navigate",
-  "Sec-Fetch-Site": "none",
-  "Sec-Fetch-User": "?1",
 };
 
 function isBotRequest(request) {
@@ -143,10 +139,6 @@ function getMeta(html, propertyOrName) {
 function getCanonical(html) {
   const match = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
   if (match?.[1]) return decodeHtmlEntities(match[1]);
-
-  const reversed = html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i);
-  if (reversed?.[1]) return decodeHtmlEntities(reversed[1]);
-
   return "";
 }
 
@@ -204,7 +196,7 @@ function extractFacebookUrlFromPath(requestUrl) {
 }
 
 // ============================================================
-// INSPECT FACEBOOK PAGE (EXTRACT AUTHOR & STATS)
+// INSPECT FACEBOOK PAGE (EXTRACT AUTHOR & DETAILS)
 // ============================================================
 
 function inspectFacebookPage(html, baseUrl) {
@@ -233,17 +225,28 @@ function inspectFacebookPage(html, baseUrl) {
     getMeta(html, "twitter:image") ||
     "";
 
-  // สกัดชื่อเจ้าของโพสต์ออกจาก Title
+  // ดึงชื่อเจ้าของโพสต์จาก Title
   let authorName = "";
   if (rawTitle.includes(" | Facebook")) {
     authorName = rawTitle.replace(" | Facebook", "").trim();
   } else if (rawTitle.includes(" - ")) {
     authorName = rawTitle.split(" - ")[0].trim();
-  } else if (rawTitle) {
+  } else if (rawTitle && !rawTitle.toLowerCase().includes("facebook")) {
     authorName = rawTitle.trim();
   }
 
-  // ดึงยอดสถิติต่างๆ จากโครงสร้าง JSON ของ Facebook
+  // หากดึง Title ไม่สำเร็จ ให้สกัด Username จาก URL ที่ Resolve แล้ว
+  if (!authorName && baseUrl) {
+    try {
+      const parsedUrl = new URL(baseUrl);
+      const parts = parsedUrl.pathname.split("/").filter(Boolean);
+      if (parts.length > 0 && !["share", "reel", "reels", "videos", "watch"].includes(parts[0])) {
+        authorName = parts[0];
+      }
+    } catch {}
+  }
+
+  // ดึงยอดสถิติต่างๆ
   let reactionCount = "";
   let commentCount = "";
   let shareCount = "";
@@ -259,7 +262,6 @@ function inspectFacebookPage(html, baseUrl) {
     if (shareMatch?.[1]) shareCount = shareMatch[1];
   } catch {}
 
-  // จัดรูปแบบสถิติ ❤️ 245K • 💬 7.14K • 🔁 9.6K
   let statsParts = [];
   if (reactionCount) statsParts.push(`❤️ ${formatNumber(reactionCount)}`);
   if (commentCount) statsParts.push(`💬 ${formatNumber(commentCount)}`);
@@ -271,7 +273,7 @@ function inspectFacebookPage(html, baseUrl) {
     canonical,
     ogUrl,
     authorName: authorName || "Facebook Video",
-    description: formattedStats || description || "Facebook Video",
+    description: formattedStats || description || "Facebook Reel/Video",
     image,
   };
 }
@@ -282,51 +284,34 @@ function inspectFacebookPage(html, baseUrl) {
 
 async function resolveFacebookShare(sourceUrl) {
   try {
-    const headResponse = await fetch(sourceUrl, {
-      method: "HEAD",
+    const response = await fetch(sourceUrl, {
+      method: "GET",
       redirect: "follow",
       headers: FACEBOOK_HEADERS,
     });
 
-    const headFinalUrl = headResponse.url || "";
-    if (
-      headFinalUrl &&
-      !isSharePath(headFinalUrl) &&
-      !isLoginPath(headFinalUrl) &&
-      looksLikePostUrl(headFinalUrl)
-    ) {
-      return {
-        success: true,
-        resolvedUrl: headFinalUrl,
-        html: "",
-        authorName: "Facebook Video",
-        description: "",
-        image: "",
-        reason: "HEAD redirect",
-      };
-    }
-  } catch (error) {}
+    const html = await response.text();
+    const finalUrl = response.url || sourceUrl;
+    const pageInfo = inspectFacebookPage(html, finalUrl);
 
-  const response = await fetch(sourceUrl, {
-    method: "GET",
-    redirect: "follow",
-    headers: FACEBOOK_HEADERS,
-  });
-
-  const html = await response.text();
-  const finalUrl = response.url || sourceUrl;
-  const pageInfo = inspectFacebookPage(html, finalUrl);
-  const declaredUrl = pageInfo.canonical || pageInfo.ogUrl || "";
-
-  return {
-    success: true,
-    resolvedUrl: declaredUrl || finalUrl,
-    html,
-    finalUrl,
-    authorName: pageInfo.authorName,
-    description: pageInfo.description,
-    image: pageInfo.image,
-  };
+    return {
+      success: true,
+      resolvedUrl: pageInfo.canonical || pageInfo.ogUrl || finalUrl,
+      html,
+      authorName: pageInfo.authorName,
+      description: pageInfo.description,
+      image: pageInfo.image,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      resolvedUrl: sourceUrl,
+      html: "",
+      authorName: "Facebook Video",
+      description: "Facebook Reel/Video",
+      image: "",
+    };
+  }
 }
 
 // ============================================================
@@ -466,7 +451,7 @@ function htmlPage(data) {
   const { sourceUrl, videoUrl, authorName, description, image } = data;
 
   const displayTitle = authorName || "Facebook Video";
-  const displayDescription = description || "Facebook Video";
+  const displayDescription = description || "Facebook Reel/Video";
 
   return `<!DOCTYPE html>
 <html lang="en">
