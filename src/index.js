@@ -1460,8 +1460,91 @@ async function resolveFacebookShare(
 }
 
 // ============================================================
-// VIDEO HELPERS
+// EXTRACT VIDEO URL
 // ============================================================
+
+function extractFacebookVideoUrl(
+  html,
+  requestedId = ""
+) {
+  if (!html) return "";
+
+  const candidates = [];
+
+  const jsonScriptRegex =
+    /<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+  let match;
+
+  while (
+    (match =
+      jsonScriptRegex.exec(html)) !== null
+  ) {
+    const raw = match[1];
+
+    if (!raw) continue;
+
+    try {
+      const json =
+        JSON.parse(raw);
+
+      walkVideoNodes(
+        json,
+        requestedId,
+        candidates
+      );
+    } catch { }
+  }
+
+  extractRawVideoUrls(
+    html,
+    requestedId,
+    candidates
+  );
+
+  candidates.sort(
+    (a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+
+      if (a.isHd !== b.isHd) {
+        return a.isHd ? -1 : 1;
+      }
+
+      return 0;
+    }
+  );
+
+  for (const candidate of candidates) {
+    if (!candidate.url) continue;
+
+    const decoded =
+      decodeEscapedUrl(
+        candidate.url
+      );
+
+    if (
+      /^https?:\/\//i.test(decoded) &&
+      /\.(mp4|m4v)(?:[?#]|$)/i.test(
+        decoded
+      )
+    ) {
+      return decoded;
+    }
+
+    if (
+      /^https?:\/\//i.test(decoded) &&
+      /(?:video|fbcdn|scontent)/i.test(
+        decoded
+      )
+    ) {
+      return decoded;
+    }
+  }
+
+  return "";
+}
 
 function walkVideoNodes(
   node,
@@ -1566,13 +1649,17 @@ function walkVideoNodes(
     key,
     value,
   ] of Object.entries(node)) {
-
     if (
-      key === "browser_native_hd_url" ||
-      key === "browser_native_sd_url" ||
-      key === "browserNativeHdUrl" ||
-      key === "browserNativeSdUrl" ||
-      key === "videoDeliveryLegacyFields"
+      key ===
+      "browser_native_hd_url" ||
+      key ===
+      "browser_native_sd_url" ||
+      key ===
+      "browserNativeHdUrl" ||
+      key ===
+      "browserNativeSdUrl" ||
+      key ===
+      "videoDeliveryLegacyFields"
     ) {
       continue;
     }
@@ -1585,7 +1672,6 @@ function walkVideoNodes(
     );
   }
 }
-
 
 function addVideoCandidate(
   url,
@@ -1632,7 +1718,6 @@ function addVideoCandidate(
   });
 }
 
-
 function extractRawVideoUrls(
   html,
   requestedId,
@@ -1644,7 +1729,6 @@ function extractRawVideoUrls(
   ];
 
   for (const key of keys) {
-
     const regex =
       new RegExp(
         `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
@@ -1657,7 +1741,6 @@ function extractRawVideoUrls(
       (match =
         regex.exec(html)) !== null
     ) {
-
       const surroundingStart =
         Math.max(
           0,
@@ -1668,8 +1751,8 @@ function extractRawVideoUrls(
         Math.min(
           html.length,
           match.index +
-            match[0].length +
-            5000
+          match[0].length +
+          5000
         );
 
       const surrounding =
@@ -1707,7 +1790,6 @@ function extractRawVideoUrls(
   }
 }
 
-
 function extractVideoId(url) {
   if (!url) return "";
 
@@ -1731,221 +1813,7 @@ function extractVideoId(url) {
 }
 
 // ============================================================
-// EXTRACT VIDEO URL
-// ============================================================
-
-function extractFacebookVideoUrl(
-  html,
-  requestedId = ""
-) {
-  if (!html) return "";
-
-  const candidates = [];
-
-  // ==========================================================
-  // 1. Open Graph / Meta video
-  // ==========================================================
-
-  const metaVideoPatterns = [
-    /<meta[^>]+property=["']og:video["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
-    /<meta[^>]+property=["']og:video:url["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
-    /<meta[^>]+property=["']og:video:secure_url["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
-
-    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video["'][^>]*>/gi,
-    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video:url["'][^>]*>/gi,
-    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video:secure_url["'][^>]*>/gi,
-  ];
-
-  for (const regex of metaVideoPatterns) {
-    let match;
-
-    while ((match = regex.exec(html)) !== null) {
-      if (!match[1]) continue;
-
-      candidates.push({
-        url: match[1],
-        score: 300,
-        isHd: false,
-      });
-    }
-  }
-
-  // ==========================================================
-  // 2. JSON <script>
-  // ==========================================================
-
-  const jsonScriptRegex =
-    /<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;
-
-  let match;
-
-  while (
-    (match = jsonScriptRegex.exec(html)) !== null
-  ) {
-    const raw = match[1];
-
-    if (!raw) continue;
-
-    try {
-      const json = JSON.parse(raw);
-
-      walkVideoNodes(
-        json,
-        requestedId,
-        candidates
-      );
-    } catch {}
-  }
-
-  // ==========================================================
-  // 3. Raw HTML / escaped JSON
-  // ==========================================================
-
-extractRawVideoUrls(
-  html,
-  requestedId,
-  candidates
-);
-
-// ==========================================================
-// 4. Generic video URL patterns
-// ==========================================================
-
-const genericKeys = [
-  "browser_native_hd_url",
-  "browser_native_sd_url",
-  "browserNativeHdUrl",
-  "browserNativeSdUrl",
-  "playable_url_quality_hd",
-  "playable_url_quality_sd",
-  "playable_url",
-  "video_url",
-  "videoUrl",
-  "progressive_url",
-  "progressiveUrl",
-];
-
-for (const key of genericKeys) {
-
-  const regex = new RegExp(
-  `["']${key}["']\\s*:\\s*["']((?:\\\\.|[^"\\\\])+)["']`,
-  "gi"
-);
-
-  let match;
-
-  while ((match = regex.exec(html)) !== null) {
-
-    const surroundingStart =
-      Math.max(
-        0,
-        match.index - 5000
-      );
-
-    const surroundingEnd =
-      Math.min(
-        html.length,
-        match.index +
-          match[0].length +
-          5000
-      );
-
-    const surrounding =
-      html.slice(
-        surroundingStart,
-        surroundingEnd
-      );
-
-    let score = 100;
-
-    if (
-      requestedId &&
-      surrounding.includes(requestedId)
-    ) {
-      score += 100;
-    }
-
-    if (
-      key.includes("hd") ||
-      key.includes("HD")
-    ) {
-      score += 30;
-    }
-
-    if (
-      key === "playable_url_quality_hd"
-    ) {
-      score += 30;
-    }
-
-    candidates.push({
-      url: match[1],
-      score,
-      isHd:
-        key.includes("hd") ||
-        key.includes("HD"),
-    });
-  }
-}
-
-  // ==========================================================
-  // 5. Sort candidates
-  // ==========================================================
-
-  candidates.sort(
-    (a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-
-      if (a.isHd !== b.isHd) {
-        return a.isHd ? -1 : 1;
-      }
-
-      return 0;
-    }
-  );
-
-  // ==========================================================
-  // 6. Validate candidates
-  // ==========================================================
-
-  for (const candidate of candidates) {
-    if (!candidate.url) continue;
-
-    const decoded =
-      decodeEscapedUrl(candidate.url);
-
-    if (
-      !/^https?:\/\//i.test(decoded)
-    ) {
-      continue;
-    }
-
-    // Direct MP4/M4V
-    if (
-      /\.(mp4|m4v)(?:[?#]|$)/i.test(
-        decoded
-      )
-    ) {
-      return decoded;
-    }
-
-    // Facebook CDN / video URL
-    if (
-      /(?:video|fbcdn|scontent)/i.test(
-        decoded
-      )
-    ) {
-      return decoded;
-    }
-  }
-
-  return "";
-}
-
-// ============================================================
-// HTML PAGE FOR DISCORD EMBED
+// HTML PAGE FOR DISCORD EMBED (FIX MOBILE VIDEO EMBED)
 // ============================================================
 
 function htmlPage(data) {
@@ -1959,7 +1827,6 @@ function htmlPage(data) {
     images = [],
   } = data;
 
-  // ชื่อคนโพสต์มาก่อนเสมอ
   const safeTitle =
     authorName ||
     title ||
@@ -1969,14 +1836,17 @@ function htmlPage(data) {
     description ||
     "Facebook content converted by C2Z";
 
-  const imageList = Array.from(
-    new Set(
-      [
-        image,
-        ...(Array.isArray(images) ? images : []),
-      ].filter(Boolean)
-    )
-  ).slice(0, 10);
+  // หากเป็นวิดีโอ ให้ใส่ og:image แค่รูปเดียวเท่านั้น เพื่อป้องกันไม่ให้มือถือ Render เป็น Gallery Grid
+  const imageList = videoUrl
+    ? (image ? [image] : [])
+    : Array.from(
+        new Set(
+          [
+            image,
+            ...(Array.isArray(images) ? images : []),
+          ].filter(Boolean)
+        )
+      ).slice(0, 10);
 
   const ogImages = imageList
     .map(
@@ -2004,9 +1874,7 @@ function htmlPage(data) {
 
 <meta charset="UTF-8">
 
-<title>${escapeHtml(
-    safeTitle
-  )}</title>
+<title>${escapeHtml(safeTitle)}</title>
 
 <meta
   name="viewport"
@@ -2017,9 +1885,7 @@ function htmlPage(data) {
 
 <meta
   name="description"
-  content="${escapeHtml(
-    safeDescription
-  )}"
+  content="${escapeHtml(safeDescription)}"
 >
 
 <!-- Open Graph -->
@@ -2031,28 +1897,22 @@ function htmlPage(data) {
 
 <meta
   property="og:title"
-  content="${escapeHtml(
-    safeTitle
-  )}"
+  content="${escapeHtml(safeTitle)}"
 >
 
 <meta
   property="og:description"
-  content="${escapeHtml(
-    safeDescription
-  )}"
+  content="${escapeHtml(safeDescription)}"
 >
 
 <meta
   property="og:type"
-  content="video"
+  content="${videoUrl ? "video.other" : "website"}"
 >
 
 <meta
   property="og:url"
-  content="${escapeHtml(
-    sourceUrl || ""
-  )}"
+  content="${escapeHtml(sourceUrl || "")}"
 >
 
 ${ogImages}
@@ -2064,23 +1924,17 @@ ${videoUrl
 
 <meta
   property="og:video"
-  content="${escapeHtml(
-        videoUrl
-      )}"
+  content="${escapeHtml(videoUrl)}"
 >
 
 <meta
   property="og:video:url"
-  content="${escapeHtml(
-        videoUrl
-      )}"
+  content="${escapeHtml(videoUrl)}"
 >
 
 <meta
   property="og:video:secure_url"
-  content="${escapeHtml(
-        videoUrl
-      )}"
+  content="${escapeHtml(videoUrl)}"
 >
 
 <meta
@@ -2107,25 +1961,19 @@ ${videoUrl
 
 <meta
   name="twitter:title"
-  content="${escapeHtml(
-        safeTitle
-      )}"
+  content="${escapeHtml(safeTitle)}"
 >
 
 <meta
   name="twitter:description"
-  content="${escapeHtml(
-        safeDescription
-      )}"
+  content="${escapeHtml(safeDescription)}"
 >
 
 ${image
         ? `
 <meta
   name="twitter:image"
-  content="${escapeHtml(
-          image
-        )}"
+  content="${escapeHtml(image)}"
 >
 `
         : ""
@@ -2133,14 +1981,22 @@ ${image
 
 <meta
   name="twitter:player:stream"
-  content="${escapeHtml(
-        videoUrl
-      )}"
+  content="${escapeHtml(videoUrl)}"
 >
 
 <meta
   name="twitter:player:stream:content_type"
   content="video/mp4"
+>
+
+<meta
+  name="twitter:player:width"
+  content="1280"
+>
+
+<meta
+  name="twitter:player:height"
+  content="720"
 >
 
 `
@@ -2152,15 +2008,11 @@ ${image
 <body>
 
 <h1>
-${escapeHtml(
-      safeTitle
-    )}
+${escapeHtml(safeTitle)}
 </h1>
 
 <p>
-${escapeHtml(
-      safeDescription
-    )}
+${escapeHtml(safeDescription)}
 </p>
 
 </body>
