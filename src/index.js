@@ -848,13 +848,18 @@ function inspectFacebookPage(
             baseUrl
         );
 
-    const title =
+    const originalTitle =
         getMeta(html, "og:title") ||
         getMeta(html, "twitter:title") ||
         "";
 
     const authorName =
         extractFacebookOwnerName(html);
+
+    const title =
+        authorName ||
+        originalTitle ||
+        "";
 
     const description =
         getMeta(html, "og:description") ||
@@ -1373,13 +1378,9 @@ function htmlPage(data) {
     } = data;
 
     const safeTitle =
-        title &&
-            title !== "Facebook Video"
-            ? title
-            : (
-                authorName ||
-                "Facebook Video"
-            );
+        authorName ||
+        title ||
+        "Facebook Video";
 
     const safeDescription =
         description ||
