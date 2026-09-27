@@ -139,6 +139,10 @@ function getMeta(html, propertyOrName) {
 function getCanonical(html) {
   const match = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
   if (match?.[1]) return decodeHtmlEntities(match[1]);
+
+  const reversed = html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i);
+  if (reversed?.[1]) return decodeHtmlEntities(reversed[1]);
+
   return "";
 }
 
@@ -225,7 +229,7 @@ function inspectFacebookPage(html, baseUrl) {
     getMeta(html, "twitter:image") ||
     "";
 
-  // ดึงชื่อเจ้าของโพสต์จาก Title
+  // ดึงชื่อเจ้าของโพสต์
   let authorName = "";
   if (rawTitle.includes(" | Facebook")) {
     authorName = rawTitle.replace(" | Facebook", "").trim();
@@ -235,18 +239,7 @@ function inspectFacebookPage(html, baseUrl) {
     authorName = rawTitle.trim();
   }
 
-  // หากดึง Title ไม่สำเร็จ ให้สกัด Username จาก URL ที่ Resolve แล้ว
-  if (!authorName && baseUrl) {
-    try {
-      const parsedUrl = new URL(baseUrl);
-      const parts = parsedUrl.pathname.split("/").filter(Boolean);
-      if (parts.length > 0 && !["share", "reel", "reels", "videos", "watch"].includes(parts[0])) {
-        authorName = parts[0];
-      }
-    } catch {}
-  }
-
-  // ดึงยอดสถิติต่างๆ
+  // ดึงสถิติ Reaction, Comment, Share
   let reactionCount = "";
   let commentCount = "";
   let shareCount = "";
