@@ -1647,7 +1647,7 @@ function htmlPage(data) {
 
 <meta
   property="og:site_name"
-  content="fb.c2z.top"
+  content="Facebook Fix Embed by C2Z"
 >
 
 <meta
@@ -2078,7 +2078,7 @@ if (
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="fb.C2Z.top">
+  <meta property="og:site_name" content="C2Z">
   <meta property="og:title" content="Facebook Fix Embed by C2Z">
   <meta property="og:description" content="สร้างตัวฝังคลิปบน Discord">
   <meta property="og:url" content="https://c2z.top/">
