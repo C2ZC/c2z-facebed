@@ -985,6 +985,47 @@ ${escapeHtml(String(value))}
 }
 
 // ============================================================
+// NORMALIZE FACEBOOK GROUP MULTI_PERMALINKS
+// ============================================================
+
+function normalizeFacebookGroupMultiPermalink(
+  pathname,
+  search = ""
+) {
+  const path =
+    pathname.replace(/\/+$/, "");
+
+  const params =
+    new URLSearchParams(search);
+
+  const match =
+    path.match(
+      /^\/groups\/([^/]+)$/i
+    );
+
+  if (!match) {
+    return "";
+  }
+
+  const postId =
+    params.get("multi_permalinks");
+
+  if (
+    !postId ||
+    !/^\d+$/.test(postId)
+  ) {
+    return "";
+  }
+
+  return (
+    "https://www.facebook.com/groups/" +
+    match[1] +
+    "/permalink/" +
+    postId
+  );
+}
+
+// ============================================================
 // SUPPORTED FACEBED ROUTES
 // ============================================================
 
@@ -1023,16 +1064,21 @@ function isSupportedFacebookPath(
   ) return true;
 
   if (
-    /^\/groups\/[^/]+\/posts\/[^/]+$/i.test(
-      path
-    )
-  ) return true;
+  /^\/groups\/[^/]+\/posts\/[^/]+$/i.test(
+    path
+  )
+) return true;
 
-  if (
-    /^\/groups\/[^/]+\/permalink\/[^/]+$/i.test(
-      path
-    )
-  ) return true;
+if (
+  /^\/groups\/[^/]+$/i.test(path) &&
+  params.has("multi_permalinks")
+) return true;
+
+if (
+  /^\/groups\/[^/]+\/permalink\/[^/]+$/i.test(
+    path
+  )
+) return true;
 
   if (
     /^\/reels?\/\d+$/i.test(path)
@@ -2815,15 +2861,24 @@ copyButton.addEventListener(
     // ========================================================
 
     if (
-      isSupportedFacebookPath(
-        requestUrl.pathname,
-        requestUrl.search
-      )
-    ) {
-      const facebookUrl =
-        "https://www.facebook.com" +
-        requestUrl.pathname +
-        requestUrl.search;
+  isSupportedFacebookPath(
+    requestUrl.pathname,
+    requestUrl.search
+  )
+) {
+  const normalizedGroupUrl =
+    normalizeFacebookGroupMultiPermalink(
+      requestUrl.pathname,
+      requestUrl.search
+    );
+
+  const facebookUrl =
+    normalizedGroupUrl ||
+    (
+      "https://www.facebook.com" +
+      requestUrl.pathname +
+      requestUrl.search
+    );
 
       if (!isDiscordOrBot) {
         return Response.redirect(
