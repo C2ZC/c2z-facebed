@@ -888,6 +888,12 @@ function isSupportedFacebookPath(
   ) return true;
 
   if (
+    /^\/[^/]+\/videos\/pcb\.[^/]+\/\d+$/i.test(
+     path
+    )
+  ) return true;
+
+  if (
     /^\/groups\/[^/]+\/posts\/[^/]+$/i.test(
       path
     )
@@ -2040,19 +2046,467 @@ export default {
     // 1. HOME
     // ========================================================
 
-    if (
-      requestUrl.pathname === "/" &&
-      !requestUrl.searchParams.has(
-        "url"
-      )
-    ) {
-      return new Response(
-        "C2Z Facebed Ready",
-        {
-          status: 200,
-        }
-      );
+if (
+  requestUrl.pathname === "/" &&
+  !requestUrl.searchParams.has(
+    "url"
+  )
+) {
+  return new Response(
+    `<!DOCTYPE html>
+<html lang="th">
+<head>
+
+<meta charset="UTF-8">
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
+
+<title>C2Z Facebed</title>
+
+<style>
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background:
+    radial-gradient(
+      circle at top,
+      #302b63 0%,
+      #24243e 45%,
+      #151515 100%
+    );
+
+  color: #ffffff;
+
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
+
+.container {
+  width: min(680px, calc(100% - 32px));
+
+  padding: 32px;
+
+  background: rgba(20, 20, 20, 0.92);
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  border-radius: 18px;
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.logo {
+  text-align: center;
+
+  font-size: 32px;
+  font-weight: 700;
+
+  margin-bottom: 6px;
+}
+
+.subtitle {
+  text-align: center;
+
+  color: #aaa;
+
+  margin-bottom: 28px;
+}
+
+label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-weight: 600;
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+}
+
+input {
+  flex: 1;
+
+  min-width: 0;
+
+  padding: 14px 16px;
+
+  border: 1px solid #444;
+
+  border-radius: 10px;
+
+  background: #111;
+
+  color: #fff;
+
+  font-size: 15px;
+
+  outline: none;
+}
+
+input:focus {
+  border-color: #667eea;
+}
+
+button {
+  border: 0;
+
+  border-radius: 10px;
+
+  padding: 14px 20px;
+
+  background: #667eea;
+
+  color: white;
+
+  font-size: 15px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+button:hover {
+  background: #7289da;
+}
+
+.result {
+  display: none;
+
+  margin-top: 24px;
+}
+
+.result-title {
+  margin-bottom: 8px;
+
+  font-weight: 600;
+}
+
+.result-row {
+  display: flex;
+  gap: 10px;
+}
+
+.result input {
+  background: #0d0d0d;
+}
+
+.copy {
+  white-space: nowrap;
+}
+
+.error {
+  display: none;
+
+  margin-top: 14px;
+
+  padding: 12px 14px;
+
+  border-radius: 10px;
+
+  background: rgba(255, 70, 70, 0.12);
+
+  color: #ff8585;
+}
+
+.hint {
+  margin-top: 22px;
+
+  color: #888;
+
+  font-size: 13px;
+
+  line-height: 1.6;
+
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+
+  .container {
+    padding: 24px;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  button {
+    width: 100%;
+  }
+
+  .result-row {
+    flex-direction: column;
+  }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="logo">
+    C2Z Facebed
+  </div>
+
+  <div class="subtitle">
+    Facebook Link Generator
+  </div>
+
+  <form id="form">
+
+    <label for="facebookUrl">
+      Facebook URL
+    </label>
+
+    <div class="input-row">
+
+      <input
+        id="facebookUrl"
+        type="url"
+        placeholder="https://www.facebook.com/reel/..."
+        autocomplete="off"
+        required
+      >
+
+      <button type="submit">
+        สร้างลิงก์
+      </button>
+
+    </div>
+
+  </form>
+
+  <div
+    id="error"
+    class="error"
+  ></div>
+
+  <div
+    id="result"
+    class="result"
+  >
+
+    <div class="result-title">
+      C2Z Facebed Link
+    </div>
+
+    <div class="result-row">
+
+      <input
+        id="resultUrl"
+        type="text"
+        readonly
+      >
+
+      <button
+        id="copyButton"
+        class="copy"
+        type="button"
+      >
+        คัดลอก
+      </button>
+
+    </div>
+
+  </div>
+
+  <div class="hint">
+    วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>
+    ระบบจะเปลี่ยนเป็นลิงก์ C2Z Facebed ให้อัตโนมัติ
+  </div>
+
+</div>
+
+<script>
+
+const form =
+  document.getElementById("form");
+
+const input =
+  document.getElementById("facebookUrl");
+
+const result =
+  document.getElementById("result");
+
+const resultUrl =
+  document.getElementById("resultUrl");
+
+const error =
+  document.getElementById("error");
+
+const copyButton =
+  document.getElementById("copyButton");
+
+
+function isFacebookUrl(value) {
+
+  try {
+
+    const url =
+      new URL(value);
+
+    const host =
+      url.hostname.toLowerCase();
+
+    return (
+      host === "facebook.com" ||
+      host === "www.facebook.com" ||
+      host.endsWith(".facebook.com") ||
+      host === "fb.watch"
+    );
+
+  } catch {
+
+    return false;
+
+  }
+
+}
+
+
+form.addEventListener(
+  "submit",
+  function(event) {
+
+    event.preventDefault();
+
+    const value =
+      input.value.trim();
+
+    error.style.display =
+      "none";
+
+    result.style.display =
+      "none";
+
+    if (!isFacebookUrl(value)) {
+
+      error.textContent =
+        "กรุณาใส่ลิงก์ Facebook ที่ถูกต้อง";
+
+      error.style.display =
+        "block";
+
+      return;
+
     }
+
+    try {
+
+      const facebookUrl =
+        new URL(value);
+
+      const c2zUrl =
+        window.location.origin +
+        facebookUrl.pathname +
+        facebookUrl.search;
+
+      resultUrl.value =
+        c2zUrl;
+
+      result.style.display =
+        "block";
+
+    } catch {
+
+      error.textContent =
+        "ไม่สามารถสร้างลิงก์ได้";
+
+      error.style.display =
+        "block";
+
+    }
+
+  }
+);
+
+
+copyButton.addEventListener(
+  "click",
+  async function() {
+
+    try {
+
+      await navigator.clipboard.writeText(
+        resultUrl.value
+      );
+
+      copyButton.textContent =
+        "คัดลอกแล้ว";
+
+      setTimeout(
+        function() {
+
+          copyButton.textContent =
+            "คัดลอก";
+
+        },
+        1500
+      );
+
+    } catch {
+
+      resultUrl.select();
+
+      document.execCommand("copy");
+
+      copyButton.textContent =
+        "คัดลอกแล้ว";
+
+      setTimeout(
+        function() {
+
+          copyButton.textContent =
+            "คัดลอก";
+
+        },
+        1500
+      );
+
+    }
+
+  }
+);
+
+</script>
+
+</body>
+</html>`,
+    {
+      status: 200,
+
+      headers: {
+        "Content-Type":
+          "text/html; charset=UTF-8",
+
+        "Cache-Control":
+          "no-store, max-age=0",
+      },
+    }
+  );
+}
 
     // ========================================================
     // 2. EMBEDDED FACEBOOK URL
