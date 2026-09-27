@@ -239,6 +239,101 @@ function extractFacebookOwnerName(html) {
 // TEST PAGE DATA
 // ============================================================
 
+function extractFacebookStats(html) {
+  const stats = {
+    reactions: "",
+    comments: "",
+    shares: "",
+    views: "",
+    creationTime: "",
+  };
+
+  if (!html) return stats;
+
+  const patterns = {
+    reactions: [
+      /"reaction_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i,
+      /"reactionCount"\s*:\s*(\d+)/i,
+      /"total_reaction_count"\s*:\s*(\d+)/i,
+      /"reaction_count"\s*:\s*(\d+)/i,
+    ],
+
+    comments: [
+      /"comment_count"\s*:\s*\{\s*"total_count"\s*:\s*(\d+)/i,
+      /"commentCount"\s*:\s*(\d+)/i,
+      /"total_comment_count"\s*:\s*(\d+)/i,
+      /"comment_count"\s*:\s*(\d+)/i,
+    ],
+
+    shares: [
+      /"share_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i,
+      /"shareCount"\s*:\s*(\d+)/i,
+      /"total_share_count"\s*:\s*(\d+)/i,
+      /"share_count"\s*:\s*(\d+)/i,
+    ],
+
+    views: [
+      /"view_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i,
+      /"viewCount"\s*:\s*(\d+)/i,
+      /"play_count"\s*:\s*(\d+)/i,
+      /"video_view_count"\s*:\s*(\d+)/i,
+    ],
+
+    creationTime: [
+      /"creation_time"\s*:\s*(\d+)/i,
+      /"publish_time"\s*:\s*(\d+)/i,
+    ],
+  };
+
+  for (const [key, regexList] of Object.entries(patterns)) {
+    for (const regex of regexList) {
+      const match = html.match(regex);
+
+      if (!match?.[1]) continue;
+
+      if (key === "creationTime") {
+        const timestamp = Number(match[1]);
+
+        if (
+          Number.isFinite(timestamp) &&
+          timestamp > 0
+        ) {
+          stats.creationTime =
+            new Date(
+              timestamp * 1000
+            ).toISOString();
+        }
+      } else {
+        stats[key] = match[1];
+      }
+
+      break;
+    }
+  }
+
+  return stats;
+}
+
+
+function formatTestNumber(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ""
+  ) {
+    return "ไม่พบข้อมูล";
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return String(value);
+  }
+
+  return number.toLocaleString("en-US");
+}
+
+
 function renderTestPage({
   inputUrl = "",
   resolvedUrl = "",
@@ -254,47 +349,56 @@ function renderTestPage({
       "ชื่อคนโพสต์",
       authorName || "ไม่พบข้อมูล",
     ],
+
     [
       "Title",
       title || "ไม่พบข้อมูล",
     ],
+
     [
       "Description",
       description || "ไม่พบข้อมูล",
     ],
+
     [
       "ถูกใจ / ปฏิกิริยา",
       formatTestNumber(
         stats.reactions
       ),
     ],
+
     [
       "ความคิดเห็น",
       formatTestNumber(
         stats.comments
       ),
     ],
+
     [
       "แชร์",
       formatTestNumber(
         stats.shares
       ),
     ],
+
     [
       "ยอดดู",
       formatTestNumber(
         stats.views
       ),
     ],
+
     [
       "เวลาสร้างโพสต์",
       stats.creationTime ||
         "ไม่พบข้อมูล",
     ],
+
     [
       "URL ที่ส่ง",
       inputUrl || "—",
     ],
+
     [
       "URL ที่ Resolve ได้",
       resolvedUrl ||
@@ -304,6 +408,7 @@ function renderTestPage({
 
   return `<!DOCTYPE html>
 <html lang="th">
+
 <head>
 
 <meta charset="UTF-8">
@@ -328,6 +433,7 @@ function renderTestPage({
 body {
   margin: 0;
   min-height: 100vh;
+
   font-family:
     Inter,
     system-ui,
@@ -335,6 +441,7 @@ body {
     BlinkMacSystemFont,
     "Segoe UI",
     sans-serif;
+
   background: #111318;
   color: #f3f4f6;
 }
@@ -342,6 +449,7 @@ body {
 .wrap {
   width:
     min(1000px, calc(100% - 32px));
+
   margin: 40px auto;
 }
 
@@ -349,8 +457,10 @@ body {
   background: #1b1e24;
   border: 1px solid #30343d;
   border-radius: 16px;
+
   padding: 24px;
   margin-bottom: 18px;
+
   box-shadow:
     0 8px 30px rgba(0,0,0,.25);
 }
@@ -368,23 +478,30 @@ h2 {
   color: #9ca3af;
 }
 
-.label {
+.data-block {
+  margin-top: 18px;
+}
+
+.data-label {
   color: #9ca3af;
   font-size: 13px;
   margin-bottom: 5px;
 }
 
-.value {
-  font-size: 16px;
+.data-value {
+  font-size: 17px;
   word-break: break-word;
 }
 
 .description {
   margin-top: 18px;
+
   padding: 14px;
+
   background: #15171c;
   border: 1px solid #30343d;
   border-radius: 10px;
+
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -398,11 +515,16 @@ form {
 input {
   flex: 1;
   min-width: 0;
+
   background: #0f1115;
+
   border: 1px solid #3a3f49;
   border-radius: 10px;
+
   color: #fff;
+
   padding: 12px 14px;
+
   font-size: 14px;
   outline: none;
 }
@@ -414,26 +536,36 @@ input:focus {
 button {
   border: 0;
   border-radius: 10px;
+
   padding: 12px 18px;
+
   background: #5865f2;
   color: white;
+
   font-weight: 700;
   cursor: pointer;
 }
 
 .preview {
   display: grid;
+
   grid-template-columns:
     240px 1fr;
+
   gap: 20px;
+
   align-items: start;
 }
 
 .preview img {
   width: 100%;
+
   aspect-ratio: 16 / 9;
+
   object-fit: cover;
+
   border-radius: 12px;
+
   background: #0f1115;
 }
 
@@ -444,9 +576,12 @@ button {
 
 .stats td {
   padding: 11px 8px;
+
   border-bottom:
     1px solid #30343d;
+
   vertical-align: top;
+
   word-break: break-word;
 }
 
@@ -457,11 +592,16 @@ button {
 
 .error {
   background: #3a171b;
+
   border:
     1px solid #7f1d1d;
+
   color: #fecaca;
+
   border-radius: 10px;
+
   padding: 14px;
+
   margin-top: 18px;
 }
 
@@ -532,13 +672,16 @@ ${escapeHtml(error)}
 
 </div>
 
+
 ${
   inputUrl && !error
     ? `
 
 <div class="card">
 
-<h2>Preview</h2>
+<h2>
+Preview
+</h2>
 
 <div class="preview">
 
@@ -559,48 +702,59 @@ ${
 
 <div>
 
-<div class="label">
+<div class="data-block">
+
+<div class="data-label">
 Title
 </div>
 
-<div class="value">
+<div class="data-value">
+
 ${
   title
     ? escapeHtml(title)
     : "ไม่พบข้อมูล"
 }
+
 </div>
+
+</div>
+
 
 ${
   authorName
     ? `
-<div
-  class="label"
-  style="margin-top:18px"
->
+<div class="data-block">
+
+<div class="data-label">
 ชื่อคนโพสต์
 </div>
 
-<div class="value">
+<div class="data-value">
+
 ${escapeHtml(authorName)}
+
+</div>
+
 </div>
 `
     : ""
 }
 
+
 <div class="description">
 
-<div class="label">
+<div class="data-label">
 Description
 </div>
 
-<div class="value">
+<div class="data-value">
+
 ${
   description
     ? escapeHtml(description)
     : "ไม่พบข้อมูล"
 }
-</div>
 
 </div>
 
@@ -609,11 +763,14 @@ ${
 </div>
 
 </div>
+
+</div>
+
 
 <div class="card">
 
 <h2>
-ข้อมูลที่ดึงได้
+รายละเอียด
 </h2>
 
 <table class="stats">
