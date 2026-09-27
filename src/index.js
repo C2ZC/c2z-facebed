@@ -673,16 +673,15 @@ function renderTestPage({
   content="website"
 >
 
-${
-  safeImage
-    ? `
+${safeImage
+      ? `
 <meta
   property="og:image"
   content="${escapeHtml(safeImage)}"
 >
 `
-    : ""
-}
+      : ""
+    }
 
 <style>
 
@@ -860,56 +859,52 @@ Test
 
 </form>
 
-${
-  safeError
-    ? `
+${safeError
+      ? `
 <div class="error">
 ${escapeHtml(safeError)}
 </div>
 `
-    : ""
-}
+      : ""
+    }
 
 </div>
 
-${
-  safeInputUrl && !safeError
-    ? `
+${safeInputUrl && !safeError
+      ? `
 
 <div class="card">
 
 <div class="preview">
 
-${
-  safeImage
-    ? `
+${safeImage
+        ? `
 <img
   src="${escapeHtml(safeImage)}"
   alt=""
 >
 `
-    : `
+        : `
 <div class="muted">
 ไม่มีรูป Preview
 </div>
 `
-}
+      }
 
 <div>
 
 <h2 style="margin-top:0">
 
 ${escapeHtml(
-  safeAuthorName ||
-  safeTitle ||
-  "Facebook Content"
-)}
+        safeAuthorName ||
+        safeTitle ||
+        "Facebook Content"
+      )}
 
 </h2>
 
-${
-  safeAuthorName
-    ? `
+${safeAuthorName
+        ? `
 <div class="muted">
 
 โพสต์โดย:
@@ -920,18 +915,17 @@ ${escapeHtml(safeAuthorName)}
 
 </div>
 `
-    : ""
-}
+        : ""
+      }
 
-${
-  safeDescription
-    ? `
+${safeDescription
+        ? `
 <p>
 ${escapeHtml(safeDescription)}
 </p>
 `
-    : ""
-}
+        : ""
+      }
 
 </div>
 
@@ -950,8 +944,8 @@ ${escapeHtml(safeDescription)}
 <tbody>
 
 ${statRows
-  .map(
-    ([label, value]) => `
+        .map(
+          ([label, value]) => `
 <tr>
 
 <td>
@@ -964,8 +958,8 @@ ${escapeHtml(String(value))}
 
 </tr>
 `
-  )
-  .join("")}
+        )
+        .join("")}
 
 </tbody>
 
@@ -974,8 +968,8 @@ ${escapeHtml(String(value))}
 </div>
 
 `
-    : ""
-}
+      : ""
+    }
 
 </div>
 
@@ -1059,26 +1053,26 @@ function isSupportedFacebookPath(
 
   if (
     /^\/[^/]+\/videos\/pcb\.[^/]+\/\d+$/i.test(
-     path
+      path
     )
   ) return true;
 
   if (
-  /^\/groups\/[^/]+\/posts\/[^/]+$/i.test(
-    path
-  )
-) return true;
+    /^\/groups\/[^/]+\/posts\/[^/]+$/i.test(
+      path
+    )
+  ) return true;
 
-if (
-  /^\/groups\/[^/]+$/i.test(path) &&
-  params.has("multi_permalinks")
-) return true;
+  if (
+    /^\/groups\/[^/]+$/i.test(path) &&
+    params.has("multi_permalinks")
+  ) return true;
 
-if (
-  /^\/groups\/[^/]+\/permalink\/[^/]+$/i.test(
-    path
-  )
-) return true;
+  if (
+    /^\/groups\/[^/]+\/permalink\/[^/]+$/i.test(
+      path
+    )
+  ) return true;
 
   if (
     /^\/reels?\/\d+$/i.test(path)
@@ -1115,7 +1109,7 @@ function extractFacebookUrlFromPath(
   try {
     path =
       decodeURIComponent(path);
-  } catch {}
+  } catch { }
 
   if (!/^https?:\/\//i.test(path)) {
     return "";
@@ -1160,7 +1154,7 @@ function extractFacebookUrlFromPath(
     if (normalized) {
       return normalized;
     }
-  } catch {}
+  } catch { }
 
   return facebookUrl;
 }
@@ -1212,15 +1206,15 @@ function inspectFacebookPage(
     "";
 
   const image =
-  getMeta(
-    html,
-    "og:image"
-  ) ||
-  getMeta(
-    html,
-    "twitter:image"
-  ) ||
-  "";
+    getMeta(
+      html,
+      "og:image"
+    ) ||
+    getMeta(
+      html,
+      "twitter:image"
+    ) ||
+    "";
 
   const images =
     extractFacebookImages(
@@ -1330,9 +1324,9 @@ async function resolveFacebookShare(
           reason:
             "HEAD redirect + GET metadata",
         };
-      } catch {}
+      } catch { }
     }
-  } catch (error) {}
+  } catch (error) { }
 
   const response =
     await fetch(
@@ -1499,7 +1493,7 @@ function extractFacebookVideoUrl(
         requestedId,
         candidates
       );
-    } catch {}
+    } catch { }
   }
 
   extractRawVideoUrls(
@@ -1657,15 +1651,15 @@ function walkVideoNodes(
   ] of Object.entries(node)) {
     if (
       key ===
-        "browser_native_hd_url" ||
+      "browser_native_hd_url" ||
       key ===
-        "browser_native_sd_url" ||
+      "browser_native_sd_url" ||
       key ===
-        "browserNativeHdUrl" ||
+      "browserNativeHdUrl" ||
       key ===
-        "browserNativeSdUrl" ||
+      "browserNativeSdUrl" ||
       key ===
-        "videoDeliveryLegacyFields"
+      "videoDeliveryLegacyFields"
     ) {
       continue;
     }
@@ -1757,8 +1751,8 @@ function extractRawVideoUrls(
         Math.min(
           html.length,
           match.index +
-            match[0].length +
-            5000
+          match[0].length +
+          5000
         );
 
       const surrounding =
@@ -1931,31 +1925,30 @@ function htmlPage(data) {
 
 ${ogImages}
 
-${
-  videoUrl
-    ? `
+${videoUrl
+      ? `
 
 <!-- Open Graph Video -->
 
 <meta
   property="og:video"
   content="${escapeHtml(
-    videoUrl
-  )}"
+        videoUrl
+      )}"
 >
 
 <meta
   property="og:video:url"
   content="${escapeHtml(
-    videoUrl
-  )}"
+        videoUrl
+      )}"
 >
 
 <meta
   property="og:video:secure_url"
   content="${escapeHtml(
-    videoUrl
-  )}"
+        videoUrl
+      )}"
 >
 
 <meta
@@ -1983,35 +1976,34 @@ ${
 <meta
   name="twitter:title"
   content="${escapeHtml(
-    safeTitle
-  )}"
+        safeTitle
+      )}"
 >
 
 <meta
   name="twitter:description"
   content="${escapeHtml(
-    safeDescription
-  )}"
+        safeDescription
+      )}"
 >
 
-${
-  image
-    ? `
+${image
+        ? `
 <meta
   name="twitter:image"
   content="${escapeHtml(
-    image
-  )}"
+          image
+        )}"
 >
 `
-    : ""
-}
+        : ""
+      }
 
 <meta
   name="twitter:player:stream"
   content="${escapeHtml(
-    videoUrl
-  )}"
+        videoUrl
+      )}"
 >
 
 <meta
@@ -2020,8 +2012,8 @@ ${
 >
 
 `
-    : ""
-}
+      : ""
+    }
 
 </head>
 
@@ -2029,14 +2021,14 @@ ${
 
 <h1>
 ${escapeHtml(
-  safeTitle
-)}
+      safeTitle
+    )}
 </h1>
 
 <p>
 ${escapeHtml(
-  safeDescription
-)}
+      safeDescription
+    )}
 </p>
 
 </body>
@@ -2278,14 +2270,14 @@ export default {
     // 1. HOME
     // ========================================================
 
-if (
-  requestUrl.pathname === "/" &&
-  !requestUrl.searchParams.has(
-    "url"
-  )
-) {
-  return new Response(
-    `<!DOCTYPE html>
+    if (
+      requestUrl.pathname === "/" &&
+      !requestUrl.searchParams.has(
+        "url"
+      )
+    ) {
+      return new Response(
+        `<!DOCTYPE html>
 <html lang="th">
 <head>
 
@@ -2695,7 +2687,7 @@ let c2zUrl =
 
 const groupMatch =
   facebookUrl.pathname.match(
-    /^\/groups\/([^/]+)\/?$/i
+    /^\\/groups\\/([^/]+)\\/?$/i
   );
 
 const multiPermalink =
@@ -2706,7 +2698,7 @@ const multiPermalink =
 if (
   groupMatch &&
   multiPermalink &&
-  /^\d+$/.test(multiPermalink)
+  /^\\d+$/.test(multiPermalink)
 ) {
   c2zUrl =
     window.location.origin +
@@ -2787,19 +2779,19 @@ copyButton.addEventListener(
 
 </body>
 </html>`,
-    {
-      status: 200,
+        {
+          status: 200,
 
-      headers: {
-        "Content-Type":
-          "text/html; charset=UTF-8",
+          headers: {
+            "Content-Type":
+              "text/html; charset=UTF-8",
 
-        "Cache-Control":
-          "no-store, max-age=0",
-      },
+            "Cache-Control":
+              "no-store, max-age=0",
+          },
+        }
+      );
     }
-  );
-}
 
     // ========================================================
     // 2. EMBEDDED FACEBOOK URL
@@ -2808,164 +2800,164 @@ copyButton.addEventListener(
     // ========================================================
 
     const embeddedFacebookUrl =
-  extractFacebookUrlFromPath(
-    requestUrl
-  );
-
-let normalizedEmbeddedFacebookUrl =
-  embeddedFacebookUrl;
-
-if (embeddedFacebookUrl) {
-  try {
-    const embeddedUrl =
-      new URL(
-        embeddedFacebookUrl
+      extractFacebookUrlFromPath(
+        requestUrl
       );
 
-    const normalized =
-      normalizeFacebookGroupMultiPermalink(
-        embeddedUrl.pathname,
-        embeddedUrl.search
-      );
+    let normalizedEmbeddedFacebookUrl =
+      embeddedFacebookUrl;
 
-    if (normalized) {
-      normalizedEmbeddedFacebookUrl =
-        normalized;
+    if (embeddedFacebookUrl) {
+      try {
+        const embeddedUrl =
+          new URL(
+            embeddedFacebookUrl
+          );
+
+        const normalized =
+          normalizeFacebookGroupMultiPermalink(
+            embeddedUrl.pathname,
+            embeddedUrl.search
+          );
+
+        if (normalized) {
+          normalizedEmbeddedFacebookUrl =
+            normalized;
+        }
+      } catch { }
     }
-  } catch {}
-}
 
-if (embeddedFacebookUrl) {
-  if (!isDiscordOrBot) {
-    return Response.redirect(
-      normalizedEmbeddedFacebookUrl,
-      302
-    );
-  }
+    if (embeddedFacebookUrl) {
+      if (!isDiscordOrBot) {
+        return Response.redirect(
+          normalizedEmbeddedFacebookUrl,
+          302
+        );
+      }
 
-  try {
-    const resolved =
-      await resolveFacebookShare(
-        normalizedEmbeddedFacebookUrl
-      );
+      try {
+        const resolved =
+          await resolveFacebookShare(
+            normalizedEmbeddedFacebookUrl
+          );
 
-    let videoUrl =
-      extractFacebookVideoUrl(
-        resolved.html,
-        extractVideoId(
+        let videoUrl =
+          extractFacebookVideoUrl(
+            resolved.html,
+            extractVideoId(
+              resolved.resolvedUrl
+            )
+          );
+
+        if (
+          !videoUrl &&
           resolved.resolvedUrl
-        )
-      );
+        ) {
+          const videoResp =
+            await fetch(
+              resolved.resolvedUrl,
+              {
+                headers:
+                  FACEBOOK_HEADERS,
+              }
+            );
 
-    if (
-      !videoUrl &&
-      resolved.resolvedUrl
-    ) {
-      const videoResp =
-        await fetch(
-          resolved.resolvedUrl,
+          const videoHtml =
+            await videoResp.text();
+
+          videoUrl =
+            extractFacebookVideoUrl(
+              videoHtml,
+              extractVideoId(
+                resolved.resolvedUrl
+              )
+            );
+        }
+
+        let discordVideoUrl =
+          "";
+
+        if (videoUrl) {
+          discordVideoUrl =
+            new URL(
+              "/video",
+              requestUrl.origin
+            ).href +
+            "?url=" +
+            encodeURIComponent(
+              normalizedEmbeddedFacebookUrl
+            );
+        }
+
+        return new Response(
+          htmlPage({
+            sourceUrl:
+              normalizedEmbeddedFacebookUrl,
+
+            resolvedUrl:
+              resolved.resolvedUrl,
+
+            videoUrl:
+              discordVideoUrl,
+
+            title:
+              resolved.title,
+
+            authorName:
+              resolved.authorName,
+
+            description:
+              resolved.description,
+
+            image:
+              resolved.image,
+
+            images:
+              resolved.images,
+          }),
           {
-            headers:
-              FACEBOOK_HEADERS,
+            status: 200,
+
+            headers: {
+              "Content-Type":
+                "text/html; charset=UTF-8",
+
+              "Cache-Control":
+                "no-store, max-age=0",
+            },
           }
         );
-
-      const videoHtml =
-        await videoResp.text();
-
-      videoUrl =
-        extractFacebookVideoUrl(
-          videoHtml,
-          extractVideoId(
-            resolved.resolvedUrl
-          )
+      } catch (error) {
+        return errorResponse(
+          "Embedded URL resolver error",
+          500
         );
-    }
-
-    let discordVideoUrl =
-      "";
-
-    if (videoUrl) {
-      discordVideoUrl =
-        new URL(
-          "/video",
-          requestUrl.origin
-        ).href +
-        "?url=" +
-        encodeURIComponent(
-          normalizedEmbeddedFacebookUrl
-        );
-    }
-
-    return new Response(
-      htmlPage({
-        sourceUrl:
-          normalizedEmbeddedFacebookUrl,
-
-        resolvedUrl:
-          resolved.resolvedUrl,
-
-        videoUrl:
-          discordVideoUrl,
-
-        title:
-          resolved.title,
-
-        authorName:
-          resolved.authorName,
-
-        description:
-          resolved.description,
-
-        image:
-          resolved.image,
-
-        images:
-          resolved.images,
-      }),
-      {
-        status: 200,
-
-        headers: {
-          "Content-Type":
-            "text/html; charset=UTF-8",
-
-          "Cache-Control":
-            "no-store, max-age=0",
-        },
       }
-    );
-  } catch (error) {
-    return errorResponse(
-      "Embedded URL resolver error",
-      500
-    );
-  }
-}
+    }
 
     // ========================================================
     // 3. SUPPORTED FACEBOOK ROUTES
     // ========================================================
 
     if (
-  isSupportedFacebookPath(
-    requestUrl.pathname,
-    requestUrl.search
-  )
-) {
-  const normalizedGroupUrl =
-    normalizeFacebookGroupMultiPermalink(
-      requestUrl.pathname,
-      requestUrl.search
-    );
+      isSupportedFacebookPath(
+        requestUrl.pathname,
+        requestUrl.search
+      )
+    ) {
+      const normalizedGroupUrl =
+        normalizeFacebookGroupMultiPermalink(
+          requestUrl.pathname,
+          requestUrl.search
+        );
 
-  const facebookUrl =
-    normalizedGroupUrl ||
-    (
-      "https://www.facebook.com" +
-      requestUrl.pathname +
-      requestUrl.search
-    );
+      const facebookUrl =
+        normalizedGroupUrl ||
+        (
+          "https://www.facebook.com" +
+          requestUrl.pathname +
+          requestUrl.search
+        );
 
       if (!isDiscordOrBot) {
         return Response.redirect(
@@ -3050,7 +3042,7 @@ if (embeddedFacebookUrl) {
 
             image:
               resolved.image,
-            
+
             images:
               resolved.images,
           }),
@@ -3085,7 +3077,7 @@ if (embeddedFacebookUrl) {
 
     if (
       requestUrl.pathname ===
-        "/video" &&
+      "/video" &&
       sourceUrl
     ) {
       const facebookUrl =
