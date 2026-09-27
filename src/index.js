@@ -613,14 +613,46 @@ function htmlPage(data) {
   const safeTitle = authorName || title || "Facebook Content";
   const safeDescription = description || "Facebook content converted by C2Z";
 
-  // ดึงเฉพาะรูปแรกรูปเดียวที่ดึงได้ (เลือกระหว่าง image หลัก หรือ รูปแรกใน images)
-  const primaryImage = image || (Array.isArray(images) && images.length > 0 ? images[0] : "");
+  // ฟังก์ชันลบ Query Parameters ของ URL รูปภาพเพื่อเปรียบเทียบรูปซ้ำจริง
+  function normalizeImageUrl(url) {
+    if (!url) return "";
+    try {
+      const u = new URL(url);
+      return u.origin + u.pathname;
+    } catch {
+      return url;
+    }
+  }
 
-  const ogImages = primaryImage
-    ? `<meta property="og:image" content="${escapeHtml(primaryImage)}">
+  // รวมรูปภาพทั้งหมด ดึงเฉพาะรูปที่ไม่ซ้ำกัน
+  const allImages = [];
+  const seenNormalized = new Set();
+
+  for (const imgUrl of [image, ...(Array.isArray(images) ? images : [])].filter(Boolean)) {
+    const normalized = normalizeImageUrl(imgUrl);
+    if (!seenNormalized.has(normalized)) {
+      seenNormalized.add(normalized);
+      allImages.push(imgUrl);
+    }
+  }
+
+  // จัดเตรียมรายการรูปภาพ
+  // - ถ้าเป็นคลิปวิดีโอ: ใช้รูปแรกรูปเดียว
+  // - ถ้ามีแค่ 1 รูป: ส่งรูปเดียว
+  // - ถ้ามีหลายรูปจริง: ส่งได้สูงสุด 10 รูปทำ Gallery
+  const finalImages = videoUrl
+    ? (allImages[0] ? [allImages[0]] : [])
+    : (allImages.length > 0 ? allImages.slice(0, 10) : []);
+
+  const ogImagesHtml = finalImages
+    .map(
+      (img) => `<meta property="og:image" content="${escapeHtml(img)}">
 <meta property="og:image:width" content="1280">
 <meta property="og:image:height" content="720">`
-    : "";
+    )
+    .join("\n");
+
+  const primaryImage = finalImages[0] || "";
 
   return `<!DOCTYPE html>
 <html lang="th">
@@ -636,10 +668,16 @@ function htmlPage(data) {
 <meta property="og:site_name" content="Facebook Fix Embed by C2Z">
 <meta property="og:title" content="${escapeHtml(safeTitle)}">
 <meta property="og:description" content="${escapeHtml(safeDescription)}">
-<meta property="og:type" content="${videoUrl ? "video.other" : "website"}">
+<meta property="og:type" content="${videoUrl ? "video.other" : "article"}">
 <meta property="og:url" content="${escapeHtml(sourceUrl || "")}">
 
-${ogImages}
+${ogImagesHtml}
+
+<!-- Twitter / Discord Large Card -->
+<meta name="twitter:card" content="${videoUrl ? "player" : "summary_large_image"}">
+<meta name="twitter:title" content="${escapeHtml(safeTitle)}">
+<meta name="twitter:description" content="${escapeHtml(safeDescription)}">
+${primaryImage ? `<meta name="twitter:image" content="${escapeHtml(primaryImage)}">` : ""}
 
 ${
   videoUrl
@@ -651,11 +689,7 @@ ${
 <meta property="og:video:width" content="1280">
 <meta property="og:video:height" content="720">
 
-<!-- Twitter -->
-<meta name="twitter:card" content="player">
-<meta name="twitter:title" content="${escapeHtml(safeTitle)}">
-<meta name="twitter:description" content="${escapeHtml(safeDescription)}">
-${primaryImage ? `<meta name="twitter:image" content="${escapeHtml(primaryImage)}">` : ""}
+<!-- Twitter Player Specs -->
 <meta name="twitter:player:stream" content="${escapeHtml(videoUrl)}">
 <meta name="twitter:player:stream:content_type" content="video/mp4">
 <meta name="twitter:player:width" content="1280">
