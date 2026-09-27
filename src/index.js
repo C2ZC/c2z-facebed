@@ -1660,7 +1660,7 @@ function htmlPage(data) {
 
 <meta
   property="og:type"
-  content="video.other"
+  content="video"
 >
 
 <meta
