@@ -2744,117 +2744,140 @@ copyButton.addEventListener(
     // ========================================================
 
     const embeddedFacebookUrl =
-      extractFacebookUrlFromPath(
-        requestUrl
+  extractFacebookUrlFromPath(
+    requestUrl
+  );
+
+let normalizedEmbeddedFacebookUrl =
+  embeddedFacebookUrl;
+
+if (embeddedFacebookUrl) {
+  try {
+    const embeddedUrl =
+      new URL(
+        embeddedFacebookUrl
       );
 
-    if (embeddedFacebookUrl) {
-      if (!isDiscordOrBot) {
-        return Response.redirect(
-          embeddedFacebookUrl,
-          302
-        );
-      }
+    const normalized =
+      normalizeFacebookGroupMultiPermalink(
+        embeddedUrl.pathname,
+        embeddedUrl.search
+      );
 
-      try {
-        const resolved =
-          await resolveFacebookShare(
-            embeddedFacebookUrl
-          );
+    if (normalized) {
+      normalizedEmbeddedFacebookUrl =
+        normalized;
+    }
+  } catch {}
+}
 
-        let videoUrl =
-          extractFacebookVideoUrl(
-            resolved.html,
-            extractVideoId(
-              resolved.resolvedUrl
-            )
-          );
+if (embeddedFacebookUrl) {
+  if (!isDiscordOrBot) {
+    return Response.redirect(
+      normalizedEmbeddedFacebookUrl,
+      302
+    );
+  }
 
-        if (
-          !videoUrl &&
+  try {
+    const resolved =
+      await resolveFacebookShare(
+        normalizedEmbeddedFacebookUrl
+      );
+
+    let videoUrl =
+      extractFacebookVideoUrl(
+        resolved.html,
+        extractVideoId(
           resolved.resolvedUrl
-        ) {
-          const videoResp =
-            await fetch(
-              resolved.resolvedUrl,
-              {
-                headers:
-                  FACEBOOK_HEADERS,
-              }
-            );
+        )
+      );
 
-          const videoHtml =
-            await videoResp.text();
-
-          videoUrl =
-            extractFacebookVideoUrl(
-              videoHtml,
-              extractVideoId(
-                resolved.resolvedUrl
-              )
-            );
-        }
-
-        let discordVideoUrl =
-          "";
-
-        if (videoUrl) {
-          discordVideoUrl =
-            new URL(
-              "/video",
-              requestUrl.origin
-            ).href +
-            "?url=" +
-            encodeURIComponent(
-              embeddedFacebookUrl
-            );
-        }
-
-        return new Response(
-          htmlPage({
-            sourceUrl:
-              embeddedFacebookUrl,
-
-            resolvedUrl:
-              resolved.resolvedUrl,
-
-            videoUrl:
-              discordVideoUrl,
-
-            title:
-              resolved.title,
-
-            authorName:
-              resolved.authorName,
-
-            description:
-              resolved.description,
-
-            image:
-              resolved.image,
-
-            images:
-              resolved.images,
-          }),
+    if (
+      !videoUrl &&
+      resolved.resolvedUrl
+    ) {
+      const videoResp =
+        await fetch(
+          resolved.resolvedUrl,
           {
-            status: 200,
-
-            headers: {
-              "Content-Type":
-                "text/html; charset=UTF-8",
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
+            headers:
+              FACEBOOK_HEADERS,
           }
         );
-      } catch (error) {
-        return errorResponse(
-          "Embedded URL resolver error",
-          500
+
+      const videoHtml =
+        await videoResp.text();
+
+      videoUrl =
+        extractFacebookVideoUrl(
+          videoHtml,
+          extractVideoId(
+            resolved.resolvedUrl
+          )
         );
-      }
     }
+
+    let discordVideoUrl =
+      "";
+
+    if (videoUrl) {
+      discordVideoUrl =
+        new URL(
+          "/video",
+          requestUrl.origin
+        ).href +
+        "?url=" +
+        encodeURIComponent(
+          normalizedEmbeddedFacebookUrl
+        );
+    }
+
+    return new Response(
+      htmlPage({
+        sourceUrl:
+          normalizedEmbeddedFacebookUrl,
+
+        resolvedUrl:
+          resolved.resolvedUrl,
+
+        videoUrl:
+          discordVideoUrl,
+
+        title:
+          resolved.title,
+
+        authorName:
+          resolved.authorName,
+
+        description:
+          resolved.description,
+
+        image:
+          resolved.image,
+
+        images:
+          resolved.images,
+      }),
+      {
+        status: 200,
+
+        headers: {
+          "Content-Type":
+            "text/html; charset=UTF-8",
+
+          "Cache-Control":
+            "no-store, max-age=0",
+        },
+      }
+    );
+  } catch (error) {
+    return errorResponse(
+      "Embedded URL resolver error",
+      500
+    );
+  }
+}
 
     // ========================================================
     // 3. SUPPORTED FACEBOOK ROUTES
