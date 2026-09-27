@@ -1471,36 +1471,155 @@ function extractFacebookVideoUrl(
 
   const candidates = [];
 
+  // ==========================================================
+  // 1. Open Graph / Meta video
+  // ==========================================================
+
+  const metaVideoPatterns = [
+    /<meta[^>]+property=["']og:video["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
+    /<meta[^>]+property=["']og:video:url["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
+    /<meta[^>]+property=["']og:video:secure_url["'][^>]+content=["']([^"']+)["'][^>]*>/gi,
+
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video["'][^>]*>/gi,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video:url["'][^>]*>/gi,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:video:secure_url["'][^>]*>/gi,
+  ];
+
+  for (const regex of metaVideoPatterns) {
+    let match;
+
+    while ((match = regex.exec(html)) !== null) {
+      if (!match[1]) continue;
+
+      candidates.push({
+        url: match[1],
+        score: 300,
+        isHd: false,
+      });
+    }
+  }
+
+  // ==========================================================
+  // 2. JSON <script>
+  // ==========================================================
+
   const jsonScriptRegex =
     /<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;
 
   let match;
 
   while (
-    (match =
-      jsonScriptRegex.exec(html)) !== null
+    (match = jsonScriptRegex.exec(html)) !== null
   ) {
     const raw = match[1];
 
     if (!raw) continue;
 
     try {
-      const json =
-        JSON.parse(raw);
+      const json = JSON.parse(raw);
 
       walkVideoNodes(
         json,
         requestedId,
         candidates
       );
-    } catch { }
+    } catch {}
   }
 
-  extractRawVideoUrls(
-    html,
-    requestedId,
-    candidates
+  // ==========================================================
+  // 3. Raw HTML / escaped JSON
+  // ==========================================================
+
+extractRawVideoUrls(
+  html,
+  requestedId,
+  candidates
+);
+
+// ==========================================================
+// 4. Generic video URL patterns
+// ==========================================================
+
+const genericKeys = [
+  "browser_native_hd_url",
+  "browser_native_sd_url",
+  "browserNativeHdUrl",
+  "browserNativeSdUrl",
+  "playable_url_quality_hd",
+  "playable_url_quality_sd",
+  "playable_url",
+  "video_url",
+  "videoUrl",
+  "progressive_url",
+  "progressiveUrl",
+];
+
+for (const key of genericKeys) {
+
+  const regex = new RegExp(
+    `["']${key}["']\\s*:\\s*["']((?:\\\\.|[^"\\\\])+)["']`,
+    "gi"
   );
+
+  let match;
+
+  while ((match = regex.exec(html)) !== null) {
+
+    const surroundingStart =
+      Math.max(
+        0,
+        match.index - 5000
+      );
+
+    const surroundingEnd =
+      Math.min(
+        html.length,
+        match.index +
+          match[0].length +
+          5000
+      );
+
+    const surrounding =
+      html.slice(
+        surroundingStart,
+        surroundingEnd
+      );
+
+    let score = 100;
+
+    if (
+      requestedId &&
+      surrounding.includes(requestedId)
+    ) {
+      score += 100;
+    }
+
+    if (
+      key.includes("hd") ||
+      key.includes("HD")
+    ) {
+      score += 30;
+    }
+
+    if (
+      key === "playable_url_quality_hd"
+    ) {
+      score += 30;
+    }
+
+    candidates.push({
+      url: match[1],
+      score,
+      isHd:
+        key.includes("hd") ||
+        key.includes("HD"),
+    });
+  }
+}
+
+  // ==========================================================
+  // 5. Sort candidates
+  // ==========================================================
 
   candidates.sort(
     (a, b) => {
@@ -1516,16 +1635,24 @@ function extractFacebookVideoUrl(
     }
   );
 
+  // ==========================================================
+  // 6. Validate candidates
+  // ==========================================================
+
   for (const candidate of candidates) {
     if (!candidate.url) continue;
 
     const decoded =
-      decodeEscapedUrl(
-        candidate.url
-      );
+      decodeEscapedUrl(candidate.url);
 
     if (
-      /^https?:\/\//i.test(decoded) &&
+      !/^https?:\/\//i.test(decoded)
+    ) {
+      continue;
+    }
+
+    // Direct MP4/M4V
+    if (
       /\.(mp4|m4v)(?:[?#]|$)/i.test(
         decoded
       )
@@ -1533,279 +1660,13 @@ function extractFacebookVideoUrl(
       return decoded;
     }
 
+    // Facebook CDN / video URL
     if (
-      /^https?:\/\//i.test(decoded) &&
       /(?:video|fbcdn|scontent)/i.test(
         decoded
       )
     ) {
       return decoded;
-    }
-  }
-
-  return "";
-}
-
-function walkVideoNodes(
-  node,
-  requestedId,
-  candidates,
-  depth = 0
-) {
-  if (
-    !node ||
-    depth > 30 ||
-    typeof node === "string"
-  ) {
-    return;
-  }
-
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      walkVideoNodes(
-        item,
-        requestedId,
-        candidates,
-        depth + 1
-      );
-    }
-
-    return;
-  }
-
-  if (typeof node !== "object") {
-    return;
-  }
-
-  const hd =
-    node.browser_native_hd_url ||
-    node.browserNativeHdUrl ||
-    "";
-
-  const sd =
-    node.browser_native_sd_url ||
-    node.browserNativeSdUrl ||
-    "";
-
-  if (hd) {
-    addVideoCandidate(
-      hd,
-      node,
-      requestedId,
-      candidates,
-      true
-    );
-  }
-
-  if (sd) {
-    addVideoCandidate(
-      sd,
-      node,
-      requestedId,
-      candidates,
-      false
-    );
-  }
-
-  const legacy =
-    node.videoDeliveryLegacyFields;
-
-  if (
-    legacy &&
-    typeof legacy === "object"
-  ) {
-    const legacyHd =
-      legacy.browser_native_hd_url ||
-      legacy.browserNativeHdUrl ||
-      "";
-
-    const legacySd =
-      legacy.browser_native_sd_url ||
-      legacy.browserNativeSdUrl ||
-      "";
-
-    if (legacyHd) {
-      addVideoCandidate(
-        legacyHd,
-        node,
-        requestedId,
-        candidates,
-        true
-      );
-    }
-
-    if (legacySd) {
-      addVideoCandidate(
-        legacySd,
-        node,
-        requestedId,
-        candidates,
-        false
-      );
-    }
-  }
-
-  for (const [
-    key,
-    value,
-  ] of Object.entries(node)) {
-    if (
-      key ===
-      "browser_native_hd_url" ||
-      key ===
-      "browser_native_sd_url" ||
-      key ===
-      "browserNativeHdUrl" ||
-      key ===
-      "browserNativeSdUrl" ||
-      key ===
-      "videoDeliveryLegacyFields"
-    ) {
-      continue;
-    }
-
-    walkVideoNodes(
-      value,
-      requestedId,
-      candidates,
-      depth + 1
-    );
-  }
-}
-
-function addVideoCandidate(
-  url,
-  node,
-  requestedId,
-  candidates,
-  isHd
-) {
-  if (
-    !url ||
-    typeof url !== "string"
-  ) {
-    return;
-  }
-
-  let score = 0;
-  let serialized = "";
-
-  try {
-    serialized =
-      JSON.stringify(node);
-  } catch {
-    serialized = "";
-  }
-
-  if (
-    requestedId &&
-    serialized &&
-    serialized.includes(
-      requestedId
-    )
-  ) {
-    score += 100;
-  }
-
-  if (isHd) {
-    score += 20;
-  }
-
-  candidates.push({
-    url,
-    score,
-    isHd,
-  });
-}
-
-function extractRawVideoUrls(
-  html,
-  requestedId,
-  candidates
-) {
-  const keys = [
-    "browser_native_hd_url",
-    "browser_native_sd_url",
-  ];
-
-  for (const key of keys) {
-    const regex =
-      new RegExp(
-        `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
-        "gi"
-      );
-
-    let match;
-
-    while (
-      (match =
-        regex.exec(html)) !== null
-    ) {
-      const surroundingStart =
-        Math.max(
-          0,
-          match.index - 5000
-        );
-
-      const surroundingEnd =
-        Math.min(
-          html.length,
-          match.index +
-          match[0].length +
-          5000
-        );
-
-      const surrounding =
-        html.slice(
-          surroundingStart,
-          surroundingEnd
-        );
-
-      let score = 0;
-
-      if (
-        requestedId &&
-        surrounding.includes(
-          requestedId
-        )
-      ) {
-        score += 100;
-      }
-
-      if (
-        key ===
-        "browser_native_hd_url"
-      ) {
-        score += 20;
-      }
-
-      candidates.push({
-        url: match[1],
-        score,
-        isHd:
-          key ===
-          "browser_native_hd_url",
-      });
-    }
-  }
-}
-
-function extractVideoId(url) {
-  if (!url) return "";
-
-  const patterns = [
-    /\/videos\/(\d+)/i,
-    /\/video\/(\d+)/i,
-    /\/reel\/(\d+)/i,
-    /\/reels\/(\d+)/i,
-  ];
-
-  for (const regex of patterns) {
-    const match =
-      url.match(regex);
-
-    if (match?.[1]) {
-      return match[1];
     }
   }
 
