@@ -314,7 +314,6 @@ function extractFacebookStats(html) {
   return stats;
 }
 
-
 function formatTestNumber(value) {
   if (
     value === null ||
@@ -333,7 +332,6 @@ function formatTestNumber(value) {
   return number.toLocaleString("en-US");
 }
 
-
 function renderTestPage({
   inputUrl = "",
   resolvedUrl = "",
@@ -351,13 +349,8 @@ function renderTestPage({
     ],
 
     [
-      "Title",
+      "ชื่อโพสต์ / วิดีโอ",
       title || "ไม่พบข้อมูล",
-    ],
-
-    [
-      "Description",
-      description || "ไม่พบข้อมูล",
     ],
 
     [
@@ -408,7 +401,6 @@ function renderTestPage({
 
   return `<!DOCTYPE html>
 <html lang="th">
-
 <head>
 
 <meta charset="UTF-8">
@@ -455,6 +447,7 @@ body {
 
 .card {
   background: #1b1e24;
+
   border: 1px solid #30343d;
   border-radius: 16px;
 
@@ -470,40 +463,8 @@ h1 {
   font-size: 26px;
 }
 
-h2 {
-  margin-top: 0;
-}
-
 .muted {
   color: #9ca3af;
-}
-
-.data-block {
-  margin-top: 18px;
-}
-
-.data-label {
-  color: #9ca3af;
-  font-size: 13px;
-  margin-bottom: 5px;
-}
-
-.data-value {
-  font-size: 17px;
-  word-break: break-word;
-}
-
-.description {
-  margin-top: 18px;
-
-  padding: 14px;
-
-  background: #15171c;
-  border: 1px solid #30343d;
-  border-radius: 10px;
-
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 form {
@@ -517,15 +478,15 @@ input {
   min-width: 0;
 
   background: #0f1115;
-
   border: 1px solid #3a3f49;
+
   border-radius: 10px;
 
   color: #fff;
 
   padding: 12px 14px;
-
   font-size: 14px;
+
   outline: none;
 }
 
@@ -543,6 +504,7 @@ button {
   color: white;
 
   font-weight: 700;
+
   cursor: pointer;
 }
 
@@ -624,7 +586,6 @@ button {
   .stats td:first-child {
     width: 130px;
   }
-
 }
 
 </style>
@@ -672,16 +633,11 @@ ${escapeHtml(error)}
 
 </div>
 
-
 ${
   inputUrl && !error
     ? `
 
 <div class="card">
-
-<h2>
-Preview
-</h2>
 
 <div class="preview">
 
@@ -702,58 +658,40 @@ ${
 
 <div>
 
-<div class="data-block">
+<h2 style="margin-top:0">
 
-<div class="data-label">
-Title
-</div>
+${escapeHtml(
+  authorName ||
+  title ||
+  "Facebook Video"
+)}
 
-<div class="data-value">
-
-${
-  title
-    ? escapeHtml(title)
-    : "ไม่พบข้อมูล"
-}
-
-</div>
-
-</div>
-
+</h2>
 
 ${
   authorName
     ? `
-<div class="data-block">
+<div class="muted">
 
-<div class="data-label">
-ชื่อคนโพสต์
-</div>
+โพสต์โดย:
 
-<div class="data-value">
-
+<strong>
 ${escapeHtml(authorName)}
-
-</div>
+</strong>
 
 </div>
 `
     : ""
 }
 
-
-<div class="description">
-
-<div class="data-label">
-Description
-</div>
-
-<div class="data-value">
-
 ${
   description
-    ? escapeHtml(description)
-    : "ไม่พบข้อมูล"
+    ? `
+<p>
+${escapeHtml(description)}
+</p>
+`
+    : ""
 }
 
 </div>
@@ -761,11 +699,6 @@ ${
 </div>
 
 </div>
-
-</div>
-
-</div>
-
 
 <div class="card">
 
@@ -808,7 +741,6 @@ ${escapeHtml(value)}
 </div>
 
 </body>
-
 </html>`;
 }
 
