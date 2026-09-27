@@ -52,12 +52,10 @@ function decodeEscapedUrl(value) {
     .replace(/\\\//g, "/")
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, "\\")
-    .replace(/\\u0025/gi, "%")
-    .replace(/\\u0026/gi, "&")
-    .replace(/\\u003D/gi, "=")
-    .replace(/\\u003F/gi, "?")
-    .replace(/\\u002F/gi, "/")
-    .replace(/\\u003A/gi, ":");
+    .replace(
+      /\\u([0-9a-fA-F]{4})/g,
+      (_, hex) => String.fromCharCode(parseInt(hex, 16))
+    );
 
   return decodeHtmlEntities(result);
 }
