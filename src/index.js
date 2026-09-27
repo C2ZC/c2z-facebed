@@ -1647,7 +1647,7 @@ function htmlPage(data) {
 
 <meta
   property="og:site_name"
-  content="C2Z Facebed"
+  content="fb.c2z.top"
 >
 
 <meta
@@ -2064,10 +2064,10 @@ if (
   content="width=device-width, initial-scale=1"
 >
 
-<title>C2Z Facebed</title>
+<title>Facebook Fix Embed by C2Z</title>
 
-  <meta name="title" content="C2Z Facebed">
-  <meta name="description" content="ฝังวิดีโอ บน Discord">
+  <meta name="title" content="Facebook Fix Embed by C2Z">
+  <meta name="description" content="สร้างตัวฝังคลิปบน Discord">
   <meta name="author" content="C2Z">
 
   <!-- Favicon -->
@@ -2079,19 +2079,19 @@ if (
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="fb.C2Z.top">
-  <meta property="og:title" content="C2Z Facebed">
-  <meta property="og:description" content="ฝังวิดีโอ บน Discord">
+  <meta property="og:title" content="Facebook Fix Embed by C2Z">
+  <meta property="og:description" content="สร้างตัวฝังคลิปบน Discord">
   <meta property="og:url" content="https://c2z.top/">
-  <meta property="og:image" content="https://c2z.top/assets/images/c2z_ogm.png">
+  <meta property="og:image" content="https://c2z.top/assets/images/fb_c2z_ogm.png">
   <meta property="og:logo" content="https://c2z.top/assets/images/avatar.png">
 
   <!-- X (Twitter) -->
   <meta name="twitter:card" content="summary_large_image">
   <meta property="twitter:domain" content="fb.C2Z.top">
   <meta property="twitter:url" content="https://fb.C2Z.top">
-  <meta name="twitter:title" content="C2Z Facebed">
-  <meta name="twitter:description" content="ฝังวิดีโอ บน Discord">
-  <meta name="twitter:image" content="https://c2z.top/assets/images/c2z_ogm.png">
+  <meta name="twitter:title" content="Facebook Fix Embed by C2Z">
+  <meta name="twitter:description" content="สร้างตัวฝังคลิปบน Discord">
+  <meta name="twitter:image" content="https://c2z.top/assets/images/fb_c2z_ogm.png">
 
 <style>
 
@@ -2294,11 +2294,11 @@ button:hover {
 <div class="container">
 
   <div class="logo">
-    C2Z Facebed
+    Facebook Fix Embed by C2Z
   </div>
 
   <div class="subtitle">
-    Facebook Link Generator
+    สร้างตัวฝังคลิปและโพสบน Discord
   </div>
 
   <form id="form">
@@ -2336,7 +2336,7 @@ button:hover {
   >
 
     <div class="result-title">
-      C2Z Facebed Link
+      Fix Embed Link
     </div>
 
     <div class="result-row">
@@ -2361,7 +2361,7 @@ button:hover {
 
   <div class="hint">
     วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>
-    ระบบจะเปลี่ยนเป็นลิงก์ C2Z Facebed ให้อัตโนมัติ
+    ระบบจะเปลี่ยนเป็นลิงก์ C2Z ให้อัตโนมัติ
   </div>
 
 </div>
