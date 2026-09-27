@@ -18,6 +18,21 @@ const FACEBOOK_HEADERS = {
   "Sec-Fetch-User": "?1",
 };
 
+function isBotRequest(request) {
+  const ua = (request.headers.get("user-agent") || "").toLowerCase();
+  return (
+    ua.includes("discordbot") ||
+    ua.includes("telegrambot") ||
+    ua.includes("twitterbot") ||
+    ua.includes("facebookexternalhit") ||
+    ua.includes("slackbot") ||
+    ua.includes("whatsapp") ||
+    ua.includes("bot") ||
+    ua.includes("crawler") ||
+    ua.includes("spider")
+  );
+}
+
 // ============================================================
 // BASIC HELPERS
 // ============================================================
@@ -57,6 +72,14 @@ function decodeEscapedUrl(value) {
     .replace(/\\u002F/gi, "/")
     .replace(/\\u003A/gi, ":");
   return decodeHtmlEntities(result);
+}
+
+function formatNumber(num) {
+  if (!num || isNaN(num)) return "";
+  const n = parseInt(num, 10);
+  if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+  return n.toString();
 }
 
 function isFacebookUrl(value) {
@@ -146,10 +169,6 @@ function looksLikePostUrl(value) {
   }
 }
 
-// ============================================================
-// SUPPORTED FACEBED ROUTES (รองรับ ลิงก์ทุกรูปแบบที่ขอ)
-// ============================================================
-
 function isSupportedFacebookPath(pathname, search = "") {
   const path = pathname.replace(/\/+$/, "");
   const params = new URLSearchParams(search);
@@ -185,19 +204,26 @@ function extractFacebookUrlFromPath(requestUrl) {
 }
 
 // ============================================================
-// INSPECT FACEBOOK PAGE
+// INSPECT FACEBOOK PAGE (EXTRACT AUTHOR & STATS)
 // ============================================================
 
 function inspectFacebookPage(html, baseUrl) {
   const canonical = makeAbsoluteUrl(getCanonical(html), baseUrl);
   const ogUrl = makeAbsoluteUrl(getMeta(html, "og:url"), baseUrl);
 
-  const title =
+  let rawTitle =
     getMeta(html, "og:title") ||
     getMeta(html, "twitter:title") ||
     "";
 
-  const description =
+  if (!rawTitle) {
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    if (titleMatch?.[1]) {
+      rawTitle = decodeHtmlEntities(titleMatch[1]);
+    }
+  }
+
+  let description =
     getMeta(html, "og:description") ||
     getMeta(html, "description") ||
     "";
@@ -207,7 +233,47 @@ function inspectFacebookPage(html, baseUrl) {
     getMeta(html, "twitter:image") ||
     "";
 
-  return { canonical, ogUrl, title, description, image };
+  // สกัดชื่อเจ้าของโพสต์ออกจาก Title
+  let authorName = "";
+  if (rawTitle.includes(" | Facebook")) {
+    authorName = rawTitle.replace(" | Facebook", "").trim();
+  } else if (rawTitle.includes(" - ")) {
+    authorName = rawTitle.split(" - ")[0].trim();
+  } else if (rawTitle) {
+    authorName = rawTitle.trim();
+  }
+
+  // ดึงยอดสถิติต่างๆ จากโครงสร้าง JSON ของ Facebook
+  let reactionCount = "";
+  let commentCount = "";
+  let shareCount = "";
+
+  try {
+    const reactMatch = html.match(/"reaction_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i) || html.match(/"i18n_reaction_count"\s*:\s*"([^"]+)"/i);
+    if (reactMatch?.[1]) reactionCount = reactMatch[1];
+
+    const commentMatch = html.match(/"comment_count"\s*:\s*\{\s*"total_count"\s*:\s*(\d+)/i) || html.match(/"i18n_comment_count"\s*:\s*"([^"]+)"/i);
+    if (commentMatch?.[1]) commentCount = commentMatch[1];
+
+    const shareMatch = html.match(/"share_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i) || html.match(/"i18n_share_count"\s*:\s*"([^"]+)"/i);
+    if (shareMatch?.[1]) shareCount = shareMatch[1];
+  } catch {}
+
+  // จัดรูปแบบสถิติ ❤️ 245K • 💬 7.14K • 🔁 9.6K
+  let statsParts = [];
+  if (reactionCount) statsParts.push(`❤️ ${formatNumber(reactionCount)}`);
+  if (commentCount) statsParts.push(`💬 ${formatNumber(commentCount)}`);
+  if (shareCount) statsParts.push(`🔁 ${formatNumber(shareCount)}`);
+
+  let formattedStats = statsParts.join(" • ");
+
+  return {
+    canonical,
+    ogUrl,
+    authorName: authorName || "Facebook Video",
+    description: formattedStats || description || "Facebook Video",
+    image,
+  };
 }
 
 // ============================================================
@@ -233,6 +299,9 @@ async function resolveFacebookShare(sourceUrl) {
         success: true,
         resolvedUrl: headFinalUrl,
         html: "",
+        authorName: "Facebook Video",
+        description: "",
+        image: "",
         reason: "HEAD redirect",
       };
     }
@@ -249,41 +318,14 @@ async function resolveFacebookShare(sourceUrl) {
   const pageInfo = inspectFacebookPage(html, finalUrl);
   const declaredUrl = pageInfo.canonical || pageInfo.ogUrl || "";
 
-  if (declaredUrl && !isSharePath(declaredUrl) && !isLoginPath(declaredUrl)) {
-    return {
-      success: true,
-      resolvedUrl: declaredUrl,
-      html,
-      finalUrl,
-      title: pageInfo.title,
-      description: pageInfo.description,
-      image: pageInfo.image,
-      reason: "canonical/og:url resolved",
-    };
-  }
-
-  if (finalUrl && !isSharePath(finalUrl) && !isLoginPath(finalUrl) && looksLikePostUrl(finalUrl)) {
-    return {
-      success: true,
-      resolvedUrl: finalUrl,
-      html,
-      finalUrl,
-      title: pageInfo.title,
-      description: pageInfo.description,
-      image: pageInfo.image,
-      reason: "final URL resolved",
-    };
-  }
-
   return {
-    success: false,
-    resolvedUrl: "",
+    success: true,
+    resolvedUrl: declaredUrl || finalUrl,
     html,
     finalUrl,
-    title: pageInfo.title,
+    authorName: pageInfo.authorName,
     description: pageInfo.description,
     image: pageInfo.image,
-    reason: isLoginPath(finalUrl) ? "Facebook login page" : "Could not resolve Facebook URL",
   };
 }
 
@@ -421,24 +463,21 @@ function extractVideoId(url) {
 // ============================================================
 
 function htmlPage(data) {
-  const { sourceUrl, videoUrl, title, description, image } = data;
+  const { sourceUrl, videoUrl, authorName, description, image } = data;
 
-  const safeTitle = title || "Facebook Video";
-  const safeDescription = description || "Facebook video converted by Facebed";
+  const displayTitle = authorName || "Facebook Video";
+  const displayDescription = description || "Facebook Video";
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>${escapeHtml(safeTitle)}</title>
+<title>${escapeHtml(displayTitle)}</title>
 
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="${escapeHtml(safeDescription)}">
-
-<!-- Open Graph Meta Tags -->
+<!-- Discord Rich Embed Meta Tags -->
 <meta property="og:site_name" content="C2Z Facebed">
-<meta property="og:title" content="${escapeHtml(safeTitle)}">
-<meta property="og:description" content="${escapeHtml(safeDescription)}">
+<meta property="og:title" content="${escapeHtml(displayTitle)}">
+<meta property="og:description" content="${escapeHtml(displayDescription)}">
 <meta property="og:type" content="video.other">
 <meta property="og:url" content="${escapeHtml(sourceUrl)}">
 
@@ -455,8 +494,8 @@ ${
 <meta property="og:video:height" content="720">
 
 <meta name="twitter:card" content="player">
-<meta name="twitter:title" content="${escapeHtml(safeTitle)}">
-<meta name="twitter:description" content="${escapeHtml(safeDescription)}">
+<meta name="twitter:title" content="${escapeHtml(displayTitle)}">
+<meta name="twitter:description" content="${escapeHtml(displayDescription)}">
 <meta name="twitter:image" content="${escapeHtml(image || "")}">
 <meta name="twitter:player:stream" content="${escapeHtml(videoUrl)}">
 <meta name="twitter:player:stream:content_type" content="video/mp4">
@@ -465,8 +504,8 @@ ${
 }
 </head>
 <body>
-<h1>${escapeHtml(safeTitle)}</h1>
-<p>${escapeHtml(safeDescription)}</p>
+<h1>${escapeHtml(displayTitle)}</h1>
+<p>${escapeHtml(displayDescription)}</p>
 </body>
 </html>`;
 }
@@ -489,24 +528,13 @@ export default {
   async fetch(request) {
     const requestUrl = new URL(request.url);
 
-    // เช็กว่าเป็น Discordbot หรือ Social Crawlers หรือไม่
-    const ua = (request.headers.get("user-agent") || "").toLowerCase();
-    const isDiscordOrBot =
-      ua.includes("discordbot") ||
-      ua.includes("telegrambot") ||
-      ua.includes("twitterbot") ||
-      ua.includes("facebookexternalhit");
-
-    // 1. HOME
     if (requestUrl.pathname === "/" && !requestUrl.searchParams.has("url")) {
       return new Response("C2Z Facebed Ready", { status: 200 });
     }
 
-    // 2. EMBEDDED URL IN PATH: https://fb.c2z.top/https://www.facebook.com/...
     const embeddedFacebookUrl = extractFacebookUrlFromPath(requestUrl);
     if (embeddedFacebookUrl) {
-      // ถ้าไม่ใช่ Bot (คนกดเปิดลิงก์ในเบราว์เซอร์) ให้เด้งไป Facebook ทันที
-      if (!isDiscordOrBot) {
+      if (!isBotRequest(request)) {
         return Response.redirect(embeddedFacebookUrl, 302);
       }
 
@@ -533,7 +561,7 @@ export default {
             sourceUrl: embeddedFacebookUrl,
             resolvedUrl: resolved.resolvedUrl,
             videoUrl: discordVideoUrl,
-            title: resolved.title,
+            authorName: resolved.authorName,
             description: resolved.description,
             image: resolved.image,
           }),
@@ -550,12 +578,10 @@ export default {
       }
     }
 
-    // 3. SUPPORTED FACEBOOK ROUTES: /share/v/xxx, /user/posts/xxx
     if (isSupportedFacebookPath(requestUrl.pathname, requestUrl.search)) {
       const facebookUrl = "https://www.facebook.com" + requestUrl.pathname + requestUrl.search;
 
-      // ถ้าไม่ใช่ Bot ให้เด้งไป Facebook ทันที
-      if (!isDiscordOrBot) {
+      if (!isBotRequest(request)) {
         return Response.redirect(facebookUrl, 302);
       }
 
@@ -582,7 +608,7 @@ export default {
             sourceUrl: facebookUrl,
             resolvedUrl: resolved.resolvedUrl,
             videoUrl: discordVideoUrl,
-            title: resolved.title,
+            authorName: resolved.authorName,
             description: resolved.description,
             image: resolved.image,
           }),
@@ -599,7 +625,6 @@ export default {
       }
     }
 
-    // 4. /video ROUTE (DISCORD MP4 DIRECT STREAM)
     const sourceUrl = requestUrl.searchParams.get("url");
     if (requestUrl.pathname === "/video" && sourceUrl) {
       let facebookUrl = decodeURIComponent(sourceUrl);
