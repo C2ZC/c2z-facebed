@@ -1,27 +1,5 @@
-const FACEBOOK_UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-  "AppleWebKit/537.36 (KHTML, like Gecko) " +
-  "Chrome/146.0.0.0 Safari/537.36";
-
-const FACEBOOK_HEADERS = {
-  "User-Agent": FACEBOOK_UA,
-  "Accept":
-    "text/html,application/xhtml+xml,application/xml;q=0.9," +
-    "image/avif,image/webp,image/apng,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-  "Cache-Control": "no-cache",
-  "Pragma": "no-cache",
-  "Upgrade-Insecure-Requests": "1",
-  "Sec-Fetch-Dest": "document",
-  "Sec-Fetch-Mode": "navigate",
-  "Sec-Fetch-Site": "none",
-  "Sec-Fetch-User": "?1",
-};
-
-// ============================================================
-// BASIC HELPERS
-// ============================================================
-
+const FACEBOOK_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " + "AppleWebKit/537.36 (KHTML, like Gecko) " + "Chrome/146.0.0.0 Safari/537.36";
+const FACEBOOK_HEADERS = { "User-Agent": FACEBOOK_UA, Accept: "text/html,application/xhtml+xml,application/xml;q=0.9," + "image/avif,image/webp,image/apng,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9", "Cache-Control": "no-cache", Pragma: "no-cache", "Upgrade-Insecure-Requests": "1", "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Site": "none", "Sec-Fetch-User": "?1" };
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -30,28 +8,17 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-
 function decodeHtmlEntities(value) {
   if (!value) return "";
-
   return String(value)
-    // Hexadecimal: &#x0e01;
     .replace(/&#x([0-9a-fA-F]+);?/g, (_, hex) => {
       const codePoint = parseInt(hex, 16);
-      return Number.isFinite(codePoint)
-        ? String.fromCodePoint(codePoint)
-        : _;
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : _;
     })
-
-    // Decimal: &#3585;
     .replace(/&#([0-9]+);?/g, (_, decimal) => {
       const codePoint = parseInt(decimal, 10);
-      return Number.isFinite(codePoint)
-        ? String.fromCodePoint(codePoint)
-        : _;
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : _;
     })
-
-    // Common named entities
     .replace(/&amp;/gi, "&")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
@@ -60,1953 +27,748 @@ function decodeHtmlEntities(value) {
     .replace(/&gt;/gi, ">")
     .replace(/&nbsp;/gi, " ");
 }
-
 function decodeEscapedUrl(value) {
   if (!value) return "";
-
   let result = String(value);
-
   result = result
     .replace(/\\\//g, "/")
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, "\\")
-    .replace(
-      /\\u([0-9a-fA-F]{4})/g,
-      (_, hex) => String.fromCharCode(parseInt(hex, 16))
-    );
-
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
   return decodeHtmlEntities(result);
 }
-
 function isFacebookUrl(value) {
   try {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
-
-    return (
-      host === "facebook.com" ||
-      host === "www.facebook.com" ||
-      host.endsWith(".facebook.com") ||
-      host === "fb.watch"
-    );
+    return host === "facebook.com" || host === "www.facebook.com" || host.endsWith(".facebook.com") || host === "fb.watch";
   } catch {
-    return false;
+    return !1;
   }
 }
-
 function isSharePath(value) {
   try {
     const url = new URL(value);
     return /^\/share\//i.test(url.pathname);
   } catch {
-    return false;
+    return !1;
   }
 }
-
 function isLoginPath(value) {
   try {
     const url = new URL(value);
     return /\/login/i.test(url.pathname);
   } catch {
-    return false;
+    return !1;
   }
 }
-
 function makeAbsoluteUrl(value, baseUrl) {
   if (!value) return "";
-
   try {
     return new URL(value, baseUrl).href;
   } catch {
     return "";
   }
 }
-
 function getMeta(html, propertyOrName) {
-  const escaped = propertyOrName.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&"
-  );
-
-  const patterns = [
-    new RegExp(
-      `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)["']`,
-      "i"
-    ),
-    new RegExp(
-      `<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["']`,
-      "i"
-    ),
-  ];
-
+  const escaped = propertyOrName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const patterns = [new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)["']`, "i"), new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["']`, "i")];
   for (const regex of patterns) {
     const match = html.match(regex);
-
     if (match?.[1]) {
       return decodeHtmlEntities(match[1]);
     }
   }
-
   return "";
 }
-
 function getCanonical(html) {
-  const match = html.match(
-    /<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i
-  );
-
+  const match = html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i);
   if (match?.[1]) {
     return decodeHtmlEntities(match[1]);
   }
-
-  const reversed = html.match(
-    /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i
-  );
-
+  const reversed = html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']canonical["']/i);
   if (reversed?.[1]) {
     return decodeHtmlEntities(reversed[1]);
   }
-
   return "";
 }
-
 function looksLikePostUrl(value) {
-  if (!value) return false;
-
+  if (!value) return !1;
   try {
     const url = new URL(value);
-
-    if (
-      !/facebook\.com$/i.test(url.hostname) &&
-      !/\.facebook\.com$/i.test(url.hostname)
-    ) {
-      return false;
+    if (!/facebook\.com$/i.test(url.hostname) && !/\.facebook\.com$/i.test(url.hostname)) {
+      return !1;
     }
-
-    return (
-      /\/videos?\//i.test(url.pathname) ||
-      /\/reel\//i.test(url.pathname) ||
-      /\/reels\//i.test(url.pathname) ||
-      /\/posts?\//i.test(url.pathname) ||
-      /\/watch/i.test(url.pathname)
-    );
+    return /\/videos?\//i.test(url.pathname) || /\/reel\//i.test(url.pathname) || /\/reels\//i.test(url.pathname) || /\/posts?\//i.test(url.pathname) || /\/watch/i.test(url.pathname);
   } catch {
-    return false;
+    return !1;
   }
 }
-
-// ============================================================
-// FACEBOOK OWNER
-// ============================================================
-
 function extractFacebookOwnerName(html) {
   if (!html) return "";
-
-  const patterns = [
-    /"short_form_video_context"\s*:\s*\{[\s\S]{0,10000}?"video_owner"\s*:\s*\{[\s\S]{0,4000}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i,
-
-    /"video_owner"\s*:\s*\{[\s\S]{0,4000}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i,
-
-    /"videoOwner"\s*:\s*\{[\s\S]{0,4000}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i,
-
-    /"owner"\s*:\s*\{[\s\S]{0,2500}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i,
-
-    /"actor"\s*:\s*\{[\s\S]{0,2500}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i,
-  ];
-
+  const patterns = [/"short_form_video_context"\s*:\s*\{[\s\S]{0,10000}?"video_owner"\s*:\s*\{[\s\S]{0,4000}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i, /"video_owner"\s*:\s*\{[\s\S]{0,4000}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i, /"videoOwner"\s*:\s*\{[\s\S]{0,4000}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i, /"owner"\s*:\s*\{[\s\S]{0,2500}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i, /"actor"\s*:\s*\{[\s\S]{0,2500}?"name"\s*:\s*"((?:\\.|[^"\\])*)"/i];
   for (const regex of patterns) {
     const match = html.match(regex);
-
     if (!match?.[1]) continue;
-
-    const name = decodeEscapedUrl(
-      match[1]
-    ).trim();
-
-    if (
-      name &&
-      name.length < 200 &&
-      name !== "Facebook Content"
-    ) {
+    const name = decodeEscapedUrl(match[1]).trim();
+    if (name && name.length < 200 && name !== "Facebook Content") {
       return name;
     }
   }
-
   return "";
 }
-
-// ============================================================
-// FACEBOOK POST IMAGES
-// ============================================================
-
 function extractFacebookImages(html, baseUrl = "") {
   const images = [];
   const seen = new Set();
-
   if (!html) {
     return images;
   }
-
   function addImage(value) {
     if (!value) return;
-
     let url = decodeEscapedUrl(value);
-
     if (!url) return;
-
     url = makeAbsoluteUrl(url, baseUrl);
-
     if (!url) return;
-
-    // รับเฉพาะ URL HTTP/HTTPS
     if (!/^https?:\/\//i.test(url)) {
       return;
     }
-
-    /*
-     * Facebook รูปภาพมักอยู่บนโดเมนเหล่านี้
-     * เช่น:
-     * scontent.xx.fbcdn.net
-     * scontent.xx.facebook.com
-     * lookaside.fbsbx.com
-     */
-    if (
-      !/(fbcdn\.net|facebook\.com|fbsbx\.com)/i.test(url)
-    ) {
+    if (!/(fbcdn\.net|facebook\.com|fbsbx\.com)/i.test(url)) {
       return;
     }
-
-    /*
-     * กัน URL ซ้ำ
-     */
     if (seen.has(url)) {
       return;
     }
-
     seen.add(url);
     images.push(url);
   }
-
-  /*
-   * ==========================================================
-   * 1. og:image
-   * ==========================================================
-   *
-   * รูปหลักของโพสต์
-   */
-  const ogImageRegex =
-    /<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["']/gi;
-
+  const ogImageRegex = /<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["']/gi;
   let match;
-
-  while (
-    (match = ogImageRegex.exec(html)) !== null
-  ) {
+  while ((match = ogImageRegex.exec(html)) !== null) {
     addImage(match[1]);
   }
-
-  /*
-   * ==========================================================
-   * 2. Facebook GraphQL:
-   *
-   * "image":{"uri":"https://scontent...."}
-   * ==========================================================
-   *
-   * โพสต์รูปหลายรูปของ Facebook มักมีข้อมูลประมาณ:
-   *
-   * all_subattachments
-   *   -> nodes
-   *      -> media
-   *         -> image
-   *            -> uri
-   *
-   * เราดึง uri ออกมาโดยตรง
-   */
-  const imageUriRegex =
-    /"image"\s*:\s*\{\s*"uri"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
-
-  while (
-    (match = imageUriRegex.exec(html)) !== null
-  ) {
+  const imageUriRegex = /"image"\s*:\s*\{\s*"uri"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
+  while ((match = imageUriRegex.exec(html)) !== null) {
     addImage(match[1]);
   }
-
-  /*
-   * ==========================================================
-   * 3. viewer_image.uri
-   * ==========================================================
-   *
-   * บางโพสต์ Facebook จะมี:
-   *
-   * "viewer_image":{
-   *   "uri":"https://..."
-   * }
-   *
-   * ใช้เป็น fallback
-   */
-  const viewerImageRegex =
-    /"viewer_image"\s*:\s*\{[\s\S]{0,1000}?"uri"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
-
-  while (
-    (match = viewerImageRegex.exec(html)) !== null
-  ) {
+  const viewerImageRegex = /"viewer_image"\s*:\s*\{[\s\S]{0,1000}?"uri"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
+  while ((match = viewerImageRegex.exec(html)) !== null) {
     addImage(match[1]);
   }
-
-  /*
-   * ==========================================================
-   * จำกัดจำนวนรูป
-   * ==========================================================
-   *
-   * Discord ไม่จำเป็นต้องส่งรูปจำนวนมหาศาล
-   * จำกัดไว้ 10 รูปก่อน
-   */
   return images.slice(0, 10);
 }
-
-// ============================================================
-// TEST PAGE DATA
-// ============================================================
-
 function extractFacebookStats(html) {
-  const stats = {
-    reactions: "",
-    comments: "",
-    shares: "",
-    views: "",
-    creationTime: "",
-  };
-
+  const stats = { reactions: "", comments: "", shares: "", views: "", creationTime: "" };
   if (typeof html !== "string" || !html) {
     return stats;
   }
-
   try {
-    /*
-     * Facebook HTML อาจมีขนาดใหญ่มาก
-     * จำกัดข้อมูลที่นำมาค้นหา เพื่อลด CPU / memory ของ Worker
-     */
-    const source =
-      html.length > 3000000
-        ? html.slice(0, 3000000)
-        : html;
-
-    const patterns = {
-      reactions: [
-        /"reaction_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i,
-        /"reactionCount"\s*:\s*(\d+)/i,
-        /"total_reaction_count"\s*:\s*(\d+)/i,
-        /"reaction_count"\s*:\s*(\d+)/i,
-      ],
-
-      comments: [
-        /"comment_count"\s*:\s*\{\s*"total_count"\s*:\s*(\d+)/i,
-        /"commentCount"\s*:\s*(\d+)/i,
-        /"total_comment_count"\s*:\s*(\d+)/i,
-        /"comment_count"\s*:\s*(\d+)/i,
-      ],
-
-      shares: [
-        /"share_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i,
-        /"shareCount"\s*:\s*(\d+)/i,
-        /"total_share_count"\s*:\s*(\d+)/i,
-        /"share_count"\s*:\s*(\d+)/i,
-      ],
-
-      views: [
-        /"view_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i,
-        /"viewCount"\s*:\s*(\d+)/i,
-        /"play_count"\s*:\s*(\d+)/i,
-        /"video_view_count"\s*:\s*(\d+)/i,
-      ],
-
-      creationTime: [
-        /"creation_time"\s*:\s*(\d+)/i,
-        /"publish_time"\s*:\s*(\d+)/i,
-      ],
-    };
-
+    const source = html.length > 3000000 ? html.slice(0, 3000000) : html;
+    const patterns = { reactions: [/"reaction_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i, /"reactionCount"\s*:\s*(\d+)/i, /"total_reaction_count"\s*:\s*(\d+)/i, /"reaction_count"\s*:\s*(\d+)/i], comments: [/"comment_count"\s*:\s*\{\s*"total_count"\s*:\s*(\d+)/i, /"commentCount"\s*:\s*(\d+)/i, /"total_comment_count"\s*:\s*(\d+)/i, /"comment_count"\s*:\s*(\d+)/i], shares: [/"share_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i, /"shareCount"\s*:\s*(\d+)/i, /"total_share_count"\s*:\s*(\d+)/i, /"share_count"\s*:\s*(\d+)/i], views: [/"view_count"\s*:\s*\{\s*"count"\s*:\s*(\d+)/i, /"viewCount"\s*:\s*(\d+)/i, /"play_count"\s*:\s*(\d+)/i, /"video_view_count"\s*:\s*(\d+)/i], creationTime: [/"creation_time"\s*:\s*(\d+)/i, /"publish_time"\s*:\s*(\d+)/i] };
     for (const [key, regexList] of Object.entries(patterns)) {
       for (const regex of regexList) {
         const match = regex.exec(source);
-
         if (!match || !match[1]) {
           continue;
         }
-
         if (key === "creationTime") {
           let timestamp = Number(match[1]);
-
-          if (
-            !Number.isFinite(timestamp) ||
-            timestamp <= 0
-          ) {
+          if (!Number.isFinite(timestamp) || timestamp <= 0) {
             continue;
           }
-
-          /*
-           * Facebook บางจุดใช้ Unix timestamp เป็นวินาที
-           * บางข้อมูลอาจเป็น milliseconds
-           */
           if (timestamp > 100000000000) {
             timestamp = Math.floor(timestamp / 1000);
           }
-
           try {
             const date = new Date(timestamp * 1000);
-
             if (!Number.isNaN(date.getTime())) {
-              stats.creationTime =
-                date.toISOString();
+              stats.creationTime = date.toISOString();
             }
-          } catch {
-            // ถ้า timestamp ผิดรูปแบบ ให้ข้ามไป
-          }
+          } catch {}
         } else {
           stats[key] = String(match[1]);
         }
-
         break;
       }
     }
-  } catch {
-    /*
-     * Test page ต้องไม่ทำให้ Worker ล้ม
-     * ถ้าดึง stats ไม่ได้ ให้คืนค่าว่างแทน
-     */
-  }
-
+  } catch {}
   return stats;
 }
-
-
 function formatTestNumber(value) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ""
-  ) {
+  if (value === null || value === undefined || value === "") {
     return "ไม่พบข้อมูล";
   }
-
   try {
     const number = Number(value);
-
     if (!Number.isFinite(number)) {
       return String(value);
     }
-
     return number.toLocaleString("en-US");
   } catch {
     return String(value);
   }
 }
-
-
-function renderTestPage({
-  inputUrl = "",
-  resolvedUrl = "",
-  title = "",
-  authorName = "",
-  description = "",
-  image = "",
-  stats = {},
-  error = "",
-}) {
-  /*
-   * ป้องกันกรณี stats เป็น null / undefined / object แปลก ๆ
-   */
-  const safeStats =
-    stats && typeof stats === "object"
-      ? stats
-      : {};
-
-  const safeInputUrl =
-    inputUrl == null
-      ? ""
-      : String(inputUrl);
-
-  const safeResolvedUrl =
-    resolvedUrl == null
-      ? ""
-      : String(resolvedUrl);
-
-  const safeTitle =
-    title == null
-      ? ""
-      : String(title);
-
-  const safeAuthorName =
-    authorName == null
-      ? ""
-      : String(authorName);
-
-  const safeDescription =
-    description == null
-      ? ""
-      : String(description);
-
-  const safeImage =
-    image == null
-      ? ""
-      : String(image);
-
-  const safeError =
-    error == null
-      ? ""
-      : String(error);
-
-  /*
-   * ============================
-   * Test Page Metadata
-   * ============================
-   *
-   * ถ้ามีชื่อคนโพสต์ ให้ใช้ชื่อคนโพสต์
-   * เป็น title หลักของหน้า Test
-   */
-  const pageTitle =
-    safeAuthorName ||
-    safeTitle ||
-    "C2Z Facebed Test";
-
-  /*
-   * ถ้ามี description จาก Facebook
-   * ให้ใช้เป็น description
-   */
-  const pageDescription =
-    safeDescription ||
-    (
-      safeAuthorName
-        ? `โพสต์ Facebook โดย ${safeAuthorName}`
-        : "ทดสอบการดึงข้อมูลจาก Facebook ด้วย C2Z Facebed"
-    );
-
+function renderTestPage({ inputUrl = "", resolvedUrl = "", title = "", authorName = "", description = "", image = "", stats = {}, error = "" }) {
+  const safeStats = stats && typeof stats === "object" ? stats : {};
+  const safeInputUrl = inputUrl == null ? "" : String(inputUrl);
+  const safeResolvedUrl = resolvedUrl == null ? "" : String(resolvedUrl);
+  const safeTitle = title == null ? "" : String(title);
+  const safeAuthorName = authorName == null ? "" : String(authorName);
+  const safeDescription = description == null ? "" : String(description);
+  const safeImage = image == null ? "" : String(image);
+  const safeError = error == null ? "" : String(error);
+  const pageTitle = safeAuthorName || safeTitle || "C2Z Facebed Test";
+  const pageDescription = safeDescription || (safeAuthorName ? `โพสต์ Facebook โดย ${safeAuthorName}` : "ทดสอบการดึงข้อมูลจาก Facebook ด้วย C2Z Facebed");
   const statRows = [
-    [
-      "ชื่อคนโพสต์",
-      safeAuthorName || "ไม่พบข้อมูล",
-    ],
-
-    [
-      "ชื่อโพสต์ / วิดีโอ",
-      safeTitle || "ไม่พบข้อมูล",
-    ],
-
-    [
-      "ถูกใจ / ปฏิกิริยา",
-      formatTestNumber(
-        safeStats.reactions
-      ),
-    ],
-
-    [
-      "ความคิดเห็น",
-      formatTestNumber(
-        safeStats.comments
-      ),
-    ],
-
-    [
-      "แชร์",
-      formatTestNumber(
-        safeStats.shares
-      ),
-    ],
-
-    [
-      "ยอดดู",
-      formatTestNumber(
-        safeStats.views
-      ),
-    ],
-
-    [
-      "เวลาสร้างโพสต์",
-      safeStats.creationTime
-        ? String(safeStats.creationTime)
-        : "ไม่พบข้อมูล",
-    ],
-
-    [
-      "URL ที่ส่ง",
-      safeInputUrl || "—",
-    ],
-
-    [
-      "URL ที่ Resolve ได้",
-      safeResolvedUrl || "ไม่พบข้อมูล",
-    ],
+    ["ชื่อคนโพสต์", safeAuthorName || "ไม่พบข้อมูล"],
+    ["ชื่อโพสต์ / วิดีโอ", safeTitle || "ไม่พบข้อมูล"],
+    ["ถูกใจ / ปฏิกิริยา", formatTestNumber(safeStats.reactions)],
+    ["ความคิดเห็น", formatTestNumber(safeStats.comments)],
+    ["แชร์", formatTestNumber(safeStats.shares)],
+    ["ยอดดู", formatTestNumber(safeStats.views)],
+    ["เวลาสร้างโพสต์", safeStats.creationTime ? String(safeStats.creationTime) : "ไม่พบข้อมูล"],
+    ["URL ที่ส่ง", safeInputUrl || "—"],
+    ["URL ที่ Resolve ได้", safeResolvedUrl || "ไม่พบข้อมูล"],
   ];
-
   return `<!DOCTYPE html>
 
 <html lang="th">
-
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<meta charset="UTF-8">
+  <title>${escapeHtml(pageTitle)}</title>
 
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+  <meta name="description" content="${escapeHtml(pageDescription)}">
+  <meta property="og:title" content="${escapeHtml(pageTitle)}">
+  <meta property="og:description" content="${escapeHtml(pageDescription)}">
+  <meta property="og:type" content="website">
 
-<title>${escapeHtml(pageTitle)}</title>
+  ${safeImage ? `<meta property="og:image" content="${escapeHtml(safeImage)}">` : ""}
 
-<meta
-  name="description"
-  content="${escapeHtml(pageDescription)}"
->
-
-<meta
-  property="og:title"
-  content="${escapeHtml(pageTitle)}"
->
-
-<meta
-  property="og:description"
-  content="${escapeHtml(pageDescription)}"
->
-
-<meta
-  property="og:type"
-  content="website"
->
-
-${safeImage
-      ? `
-<meta
-  property="og:image"
-  content="${escapeHtml(safeImage)}"
->
-`
-      : ""
+  <style>
+    :root {
+      color-scheme: dark;
     }
 
-<style>
+    * {
+      box-sizing: border-box;
+    }
 
-:root {
-  color-scheme: dark;
-}
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #111318;
+      color: #f3f4f6;
+    }
 
-* {
-  box-sizing: border-box;
-}
+    .wrap {
+      width: min(1000px, calc(100% - 32px));
+      margin: 40px auto;
+    }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family:
-    Inter,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  background: #111318;
-  color: #f3f4f6;
-}
+    .card {
+      background: #1b1e24;
+      border: 1px solid #30343d;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, .25);
+    }
 
-.wrap {
-  width: min(1000px, calc(100% - 32px));
-  margin: 40px auto;
-}
+    h1 {
+      margin: 0 0 8px;
+      font-size: 26px;
+    }
 
-.card {
-  background: #1b1e24;
-  border: 1px solid #30343d;
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 18px;
-  box-shadow:
-    0 8px 30px rgba(0, 0, 0, .25);
-}
+    .muted {
+      color: #9ca3af;
+    }
 
-h1 {
-  margin: 0 0 8px;
-  font-size: 26px;
-}
+    form {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
 
-.muted {
-  color: #9ca3af;
-}
+    input {
+      flex: 1;
+      min-width: 0;
+      background: #0f1115;
+      border: 1px solid #3a3f49;
+      border-radius: 10px;
+      color: #fff;
+      padding: 12px 14px;
+      font-size: 14px;
+      outline: none;
+    }
 
-form {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
+    input:focus {
+      border-color: #5865f2;
+    }
 
-input {
-  flex: 1;
-  min-width: 0;
-  background: #0f1115;
-  border: 1px solid #3a3f49;
-  border-radius: 10px;
-  color: #fff;
-  padding: 12px 14px;
-  font-size: 14px;
-  outline: none;
-}
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 18px;
+      background: #5865f2;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+    }
 
-input:focus {
-  border-color: #5865f2;
-}
+    .preview {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
 
-button {
-  border: 0;
-  border-radius: 10px;
-  padding: 12px 18px;
-  background: #5865f2;
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
-}
+    .preview img {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: cover;
+      border-radius: 12px;
+      background: #0f1115;
+    }
 
-.preview {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 20px;
-  align-items: start;
-}
+    .stats {
+      width: 100%;
+      border-collapse: collapse;
+    }
 
-.preview img {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  border-radius: 12px;
-  background: #0f1115;
-}
+    .stats td {
+      padding: 11px 8px;
+      border-bottom: 1px solid #30343d;
+      vertical-align: top;
+      word-break: break-word;
+    }
 
-.stats {
-  width: 100%;
-  border-collapse: collapse;
-}
+    .stats td:first-child {
+      width: 190px;
+      color: #9ca3af;
+    }
 
-.stats td {
-  padding: 11px 8px;
-  border-bottom: 1px solid #30343d;
-  vertical-align: top;
-  word-break: break-word;
-}
+    .error {
+      background: #3a171b;
+      border: 1px solid #7f1d1d;
+      color: #fecaca;
+      border-radius: 10px;
+      padding: 14px;
+      margin-top: 18px;
+    }
 
-.stats td:first-child {
-  width: 190px;
-  color: #9ca3af;
-}
+    @media (max-width: 700px) {
+      form,
+      .preview {
+        display: block;
+      }
 
-.error {
-  background: #3a171b;
-  border: 1px solid #7f1d1d;
-  color: #fecaca;
-  border-radius: 10px;
-  padding: 14px;
-  margin-top: 18px;
-}
+      button {
+        width: 100%;
+        margin-top: 10px;
+      }
 
-@media (max-width: 700px) {
+      .preview img {
+        margin-bottom: 16px;
+      }
 
-  form,
-  .preview {
-    display: block;
-  }
-
-  button {
-    width: 100%;
-    margin-top: 10px;
-  }
-
-  .preview img {
-    margin-bottom: 16px;
-  }
-
-  .stats td:first-child {
-    width: 130px;
-  }
-
-}
-
-</style>
-
+      .stats td:first-child {
+        width: 130px;
+      }
+    }
+  </style>
 </head>
 
 <body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🧪 C2Z Facebed Test</h1>
 
-<div class="wrap">
+      <div class="muted">
+        ทดสอบการดึงข้อมูลจาก Facebook
+        โดยไม่กระทบหน้า Facebed อื่น
+      </div>
 
-<div class="card">
+      <form method="GET">
+        <input
+          type="text"
+          name="test"
+          value="${escapeHtml(safeInputUrl)}"
+          placeholder="https://www.facebook.com/reel/..."
+          autocomplete="off"
+        >
 
-<h1>🧪 C2Z Facebed Test</h1>
+        <button type="submit">
+          Test
+        </button>
+      </form>
 
-<div class="muted">
-ทดสอบการดึงข้อมูลจาก Facebook
-โดยไม่กระทบหน้า Facebed อื่น
-</div>
+      ${safeError ? `<div class="error">${escapeHtml(safeError)}</div>` : ""}
+    </div>
 
-<form method="GET">
-
-<input
-  type="text"
-  name="test"
-  value="${escapeHtml(safeInputUrl)}"
-  placeholder="https://www.facebook.com/reel/..."
-  autocomplete="off"
->
-
-<button type="submit">
-Test
-</button>
-
-</form>
-
-${safeError
-      ? `
-<div class="error">
-${escapeHtml(safeError)}
-</div>
-`
-      : ""
-    }
-
-</div>
-
-${safeInputUrl && !safeError
-      ? `
-
-<div class="card">
-
-<div class="preview">
-
-${safeImage
+    ${
+      safeInputUrl && !safeError
         ? `
-<img
-  src="${escapeHtml(safeImage)}"
-  alt=""
->
-`
-        : `
-<div class="muted">
-ไม่มีรูป Preview
-</div>
-`
-      }
+    <div class="card">
+      <div class="preview">
+        ${
+          safeImage
+            ? `
+        <img src="${escapeHtml(safeImage)}" alt="">
+        `
+            : `
+        <div class="muted">
+          ไม่มีรูป Preview
+        </div>
+        `
+        }
 
-<div>
+        <div>
+          <h2 style="margin-top:0">
+            ${escapeHtml(safeAuthorName || safeTitle || "Facebook Content")}
+          </h2>
 
-<h2 style="margin-top:0">
+          ${
+            safeAuthorName
+              ? `
+          <div class="muted">
+            โพสต์โดย:
+            <strong>
+              ${escapeHtml(safeAuthorName)}
+            </strong>
+          </div>
+          `
+              : ""
+          }
 
-${escapeHtml(
-        safeAuthorName ||
-        safeTitle ||
-        "Facebook Content"
-      )}
+          ${
+            safeDescription
+              ? `
+          <p>
+            ${escapeHtml(safeDescription)}
+          </p>
+          `
+              : ""
+          }
+        </div>
+      </div>
+    </div>
 
-</h2>
+    <div class="card">
+      <h2>รายละเอียด</h2>
 
-${safeAuthorName
-        ? `
-<div class="muted">
-
-โพสต์โดย:
-
-<strong>
-${escapeHtml(safeAuthorName)}
-</strong>
-
-</div>
-`
+      <table class="stats">
+        <tbody>
+          ${statRows
+            .map(
+              ([label, value]) => `
+          <tr>
+            <td>
+              ${escapeHtml(String(label))}
+            </td>
+            <td>
+              ${escapeHtml(String(value))}
+            </td>
+          </tr>
+          `,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    `
         : ""
-      }
-
-${safeDescription
-        ? `
-<p>
-${escapeHtml(safeDescription)}
-</p>
-`
-        : ""
-      }
-
-</div>
-
-</div>
-
-</div>
-
-<div class="card">
-
-<h2>
-รายละเอียด
-</h2>
-
-<table class="stats">
-
-<tbody>
-
-${statRows
-        .map(
-          ([label, value]) => `
-<tr>
-
-<td>
-${escapeHtml(String(label))}
-</td>
-
-<td>
-${escapeHtml(String(value))}
-</td>
-
-</tr>
-`
-        )
-        .join("")}
-
-</tbody>
-
-</table>
-
-</div>
-
-`
-      : ""
     }
-
-</div>
-
+  </div>
 </body>
-
 </html>`;
 }
-
-// ============================================================
-// NORMALIZE FACEBOOK GROUP MULTI_PERMALINKS
-// ============================================================
-
-function normalizeFacebookGroupMultiPermalink(
-  pathname,
-  search = ""
-) {
-  const path =
-    pathname.replace(/\/+$/, "");
-
-  const params =
-    new URLSearchParams(search);
-
-  const match =
-    path.match(
-      /^\/groups\/([^/]+)$/i
-    );
-
+function normalizeFacebookGroupMultiPermalink(pathname, search = "") {
+  const path = pathname.replace(/\/+$/, "");
+  const params = new URLSearchParams(search);
+  const match = path.match(/^\/groups\/([^/]+)$/i);
   if (!match) {
     return "";
   }
-
-  const postId =
-    params.get("multi_permalinks");
-
-  if (
-    !postId ||
-    !/^\d+$/.test(postId)
-  ) {
+  const postId = params.get("multi_permalinks");
+  if (!postId || !/^\d+$/.test(postId)) {
     return "";
   }
-
-  return (
-    "https://www.facebook.com/groups/" +
-    match[1] +
-    "/permalink/" +
-    postId
-  );
+  return "https://www.facebook.com/groups/" + match[1] + "/permalink/" + postId;
 }
-
-// ============================================================
-// SUPPORTED FACEBED ROUTES
-// ============================================================
-
-function isSupportedFacebookPath(
-  pathname,
-  search = ""
-) {
-  const path =
-    pathname.replace(/\/+$/, "");
-
-  const params =
-    new URLSearchParams(search);
-
-  if (
-    /^\/share\/(r|p|v|[^/]+)(\/[^/]+)?$/i.test(
-      path
-    )
-  ) return true;
-
-  if (
-    /^\/[^/]+\/posts\/[^/]+$/i.test(
-      path
-    )
-  ) return true;
-
-  if (
-    /^\/[^/]+\/videos\/\d+$/i.test(
-      path
-    )
-  ) return true;
-
-  if (
-    /^\/[^/]+\/videos\/pcb\.[^/]+\/\d+$/i.test(
-      path
-    )
-  ) return true;
-
-  if (
-    /^\/groups\/[^/]+\/posts\/[^/]+$/i.test(
-      path
-    )
-  ) return true;
-
-  if (
-    /^\/groups\/[^/]+$/i.test(path) &&
-    params.has("multi_permalinks")
-  ) return true;
-
-  if (
-    /^\/groups\/[^/]+\/permalink\/[^/]+$/i.test(
-      path
-    )
-  ) return true;
-
-  if (
-    /^\/reels?\/\d+$/i.test(path)
-  ) return true;
-
-  if (
-    /^\/watch$/i.test(path) &&
-    params.has("v")
-  ) return true;
-
-  if (
-    /^\/permalink\.php$/i.test(path) &&
-    params.has("story_fbid")
-  ) return true;
-
-  if (
-    /^\/story\.php$/i.test(path) &&
-    params.has("story_fbid")
-  ) return true;
-
-  return false;
+function isSupportedFacebookPath(pathname, search = "") {
+  const path = pathname.replace(/\/+$/, "");
+  const params = new URLSearchParams(search);
+  if (/^\/share\/(r|p|v|[^/]+)(\/[^/]+)?$/i.test(path)) return !0;
+  if (/^\/[^/]+\/posts\/[^/]+$/i.test(path)) return !0;
+  if (/^\/[^/]+\/videos\/\d+$/i.test(path)) return !0;
+  if (/^\/[^/]+\/videos\/pcb\.[^/]+\/\d+$/i.test(path)) return !0;
+  if (/^\/groups\/[^/]+\/posts\/[^/]+$/i.test(path)) return !0;
+  if (/^\/groups\/[^/]+$/i.test(path) && params.has("multi_permalinks")) return !0;
+  if (/^\/groups\/[^/]+\/permalink\/[^/]+$/i.test(path)) return !0;
+  if (/^\/reels?\/\d+$/i.test(path)) return !0;
+  if (/^\/watch$/i.test(path) && params.has("v")) return !0;
+  if (/^\/permalink\.php$/i.test(path) && params.has("story_fbid")) return !0;
+  if (/^\/story\.php$/i.test(path) && params.has("story_fbid")) return !0;
+  return !1;
 }
-
-function extractFacebookUrlFromPath(
-  requestUrl
-) {
-  let path =
-    requestUrl.pathname;
-
+function extractFacebookUrlFromPath(requestUrl) {
+  let path = requestUrl.pathname;
   if (path.startsWith("/")) {
     path = path.substring(1);
   }
-
   try {
-    path =
-      decodeURIComponent(path);
-  } catch { }
-
+    path = decodeURIComponent(path);
+  } catch {}
   if (!/^https?:\/\//i.test(path)) {
     return "";
   }
-
   let facebookUrl = path;
-
   if (requestUrl.search) {
-    facebookUrl +=
-      requestUrl.search;
+    facebookUrl += requestUrl.search;
   }
-
   if (!isFacebookUrl(facebookUrl)) {
     return "";
   }
-
-  /*
-   * ==========================================================
-   * Facebook Group multi_permalinks
-   *
-   * ตัวอย่าง:
-   *
-   * https://www.facebook.com/groups/123456789
-   * ?multi_permalinks=987654321
-   *
-   * แปลงเป็น:
-   *
-   * https://www.facebook.com/groups/123456789/permalink/987654321
-   * ==========================================================
-   */
-
   try {
-    const facebookParsed =
-      new URL(facebookUrl);
-
-    const normalized =
-      normalizeFacebookGroupMultiPermalink(
-        facebookParsed.pathname,
-        facebookParsed.search
-      );
-
+    const facebookParsed = new URL(facebookUrl);
+    const normalized = normalizeFacebookGroupMultiPermalink(facebookParsed.pathname, facebookParsed.search);
     if (normalized) {
       return normalized;
     }
-  } catch { }
-
+  } catch {}
   return facebookUrl;
 }
-
-// ============================================================
-// INSPECT FACEBOOK PAGE
-// ============================================================
-
-function inspectFacebookPage(
-  html,
-  baseUrl
-) {
-  const canonical =
-    makeAbsoluteUrl(
-      getCanonical(html),
-      baseUrl
-    );
-
-  const ogUrl =
-    makeAbsoluteUrl(
-      getMeta(html, "og:url"),
-      baseUrl
-    );
-
-  const originalTitle =
-    getMeta(html, "og:title") ||
-    getMeta(html, "twitter:title") ||
-    "";
-
-  const authorName =
-    extractFacebookOwnerName(html);
-
-  // สำคัญ:
-  // ถ้าหาชื่อคนโพสต์ได้ ให้ title = ชื่อคนโพสต์
-  const title =
-    authorName ||
-    originalTitle ||
-    "";
-
-  const description =
-    getMeta(
-      html,
-      "og:description"
-    ) ||
-    getMeta(
-      html,
-      "description"
-    ) ||
-    "";
-
-  const image =
-    getMeta(
-      html,
-      "og:image"
-    ) ||
-    getMeta(
-      html,
-      "twitter:image"
-    ) ||
-    "";
-
-  const images =
-    extractFacebookImages(
-      html,
-      baseUrl
-    );
-
-  return {
-    canonical,
-    ogUrl,
-    title,
-    authorName,
-    description,
-    image,
-    images,
-  };
+function inspectFacebookPage(html, baseUrl) {
+  const canonical = makeAbsoluteUrl(getCanonical(html), baseUrl);
+  const ogUrl = makeAbsoluteUrl(getMeta(html, "og:url"), baseUrl);
+  const originalTitle = getMeta(html, "og:title") || getMeta(html, "twitter:title") || "";
+  const authorName = extractFacebookOwnerName(html);
+  const title = authorName || originalTitle || "";
+  const description = getMeta(html, "og:description") || getMeta(html, "description") || "";
+  const image = getMeta(html, "og:image") || getMeta(html, "twitter:image") || "";
+  const images = extractFacebookImages(html, baseUrl);
+  return { canonical, ogUrl, title, authorName, description, image, images };
 }
-
-// ============================================================
-// RESOLVE FACEBOOK URL
-// ============================================================
-
-async function resolveFacebookShare(
-  sourceUrl
-) {
+async function resolveFacebookShare(sourceUrl) {
   try {
-    const headResponse =
-      await fetch(
-        sourceUrl,
-        {
-          method: "HEAD",
-          redirect: "follow",
-          headers:
-            FACEBOOK_HEADERS,
-        }
-      );
-
-    const headFinalUrl =
-      headResponse.url || "";
-
-    if (
-      headFinalUrl &&
-      !isSharePath(headFinalUrl) &&
-      !isLoginPath(headFinalUrl) &&
-      looksLikePostUrl(
-        headFinalUrl
-      )
-    ) {
-      // อย่าส่งกลับทันที
-      // เพราะเราต้องการ HTML เพื่อหา
-      // ชื่อคนโพสต์ด้วย
-
+    const headResponse = await fetch(sourceUrl, { method: "HEAD", redirect: "follow", headers: FACEBOOK_HEADERS });
+    const headFinalUrl = headResponse.url || "";
+    if (headFinalUrl && !isSharePath(headFinalUrl) && !isLoginPath(headFinalUrl) && looksLikePostUrl(headFinalUrl)) {
       try {
-        const detailResponse =
-          await fetch(
-            headFinalUrl,
-            {
-              method: "GET",
-              redirect: "follow",
-              headers:
-                FACEBOOK_HEADERS,
-            }
-          );
-
-        const detailHtml =
-          await detailResponse.text();
-
-        const detailFinalUrl =
-          detailResponse.url ||
-          headFinalUrl;
-
-        const pageInfo =
-          inspectFacebookPage(
-            detailHtml,
-            detailFinalUrl
-          );
-
-        return {
-          success: true,
-
-          resolvedUrl:
-            pageInfo.canonical ||
-            pageInfo.ogUrl ||
-            detailFinalUrl,
-
-          html:
-            detailHtml,
-
-          finalUrl:
-            detailFinalUrl,
-
-          title:
-            pageInfo.title,
-
-          authorName:
-            pageInfo.authorName,
-
-          description:
-            pageInfo.description,
-
-          image:
-            pageInfo.image,
-
-          images:
-            pageInfo.images,
-
-          reason:
-            "HEAD redirect + GET metadata",
-        };
-      } catch { }
+        const detailResponse = await fetch(headFinalUrl, { method: "GET", redirect: "follow", headers: FACEBOOK_HEADERS });
+        const detailHtml = await detailResponse.text();
+        const detailFinalUrl = detailResponse.url || headFinalUrl;
+        const pageInfo = inspectFacebookPage(detailHtml, detailFinalUrl);
+        return { success: !0, resolvedUrl: pageInfo.canonical || pageInfo.ogUrl || detailFinalUrl, html: detailHtml, finalUrl: detailFinalUrl, title: pageInfo.title, authorName: pageInfo.authorName, description: pageInfo.description, image: pageInfo.image, images: pageInfo.images, reason: "HEAD redirect + GET metadata" };
+      } catch {}
     }
-  } catch (error) { }
-
-  const response =
-    await fetch(
-      sourceUrl,
-      {
-        method: "GET",
-        redirect: "follow",
-        headers:
-          FACEBOOK_HEADERS,
-      }
-    );
-
-  const html =
-    await response.text();
-
-  const finalUrl =
-    response.url ||
-    sourceUrl;
-
-  const pageInfo =
-    inspectFacebookPage(
-      html,
-      finalUrl
-    );
-
-  const declaredUrl =
-    pageInfo.canonical ||
-    pageInfo.ogUrl ||
-    "";
-
-  if (
-    declaredUrl &&
-    !isSharePath(declaredUrl) &&
-    !isLoginPath(declaredUrl)
-  ) {
-    return {
-      success: true,
-
-      resolvedUrl:
-        declaredUrl,
-
-      html,
-
-      finalUrl,
-
-      title:
-        pageInfo.title,
-
-      authorName:
-        pageInfo.authorName,
-
-      description:
-        pageInfo.description,
-
-      image:
-        pageInfo.image,
-
-      images:
-        pageInfo.images,
-
-      reason:
-        "canonical/og:url resolved",
-    };
+  } catch (error) {}
+  const response = await fetch(sourceUrl, { method: "GET", redirect: "follow", headers: FACEBOOK_HEADERS });
+  const html = await response.text();
+  const finalUrl = response.url || sourceUrl;
+  const pageInfo = inspectFacebookPage(html, finalUrl);
+  const declaredUrl = pageInfo.canonical || pageInfo.ogUrl || "";
+  if (declaredUrl && !isSharePath(declaredUrl) && !isLoginPath(declaredUrl)) {
+    return { success: !0, resolvedUrl: declaredUrl, html, finalUrl, title: pageInfo.title, authorName: pageInfo.authorName, description: pageInfo.description, image: pageInfo.image, images: pageInfo.images, reason: "canonical/og:url resolved" };
   }
-
-  if (
-    finalUrl &&
-    !isSharePath(finalUrl) &&
-    !isLoginPath(finalUrl) &&
-    looksLikePostUrl(finalUrl)
-  ) {
-    return {
-      success: true,
-
-      resolvedUrl:
-        finalUrl,
-
-      html,
-
-      finalUrl,
-
-      title:
-        pageInfo.title,
-
-      authorName:
-        pageInfo.authorName,
-
-      description:
-        pageInfo.description,
-
-      image:
-        pageInfo.image,
-
-      images:
-        pageInfo.images,
-
-      reason:
-        "final URL resolved",
-    };
+  if (finalUrl && !isSharePath(finalUrl) && !isLoginPath(finalUrl) && looksLikePostUrl(finalUrl)) {
+    return { success: !0, resolvedUrl: finalUrl, html, finalUrl, title: pageInfo.title, authorName: pageInfo.authorName, description: pageInfo.description, image: pageInfo.image, images: pageInfo.images, reason: "final URL resolved" };
   }
-
-  return {
-    success: false,
-
-    resolvedUrl: "",
-
-    html,
-
-    finalUrl,
-
-    title:
-      pageInfo.title,
-
-    authorName:
-      pageInfo.authorName,
-
-    description:
-      pageInfo.description,
-
-    image:
-      pageInfo.image,
-
-    images:
-      pageInfo.images,
-
-    reason:
-      isLoginPath(finalUrl)
-        ? "Facebook login page"
-        : "Could not resolve Facebook URL",
-  };
+  return { success: !1, resolvedUrl: "", html, finalUrl, title: pageInfo.title, authorName: pageInfo.authorName, description: pageInfo.description, image: pageInfo.image, images: pageInfo.images, reason: isLoginPath(finalUrl) ? "Facebook login page" : "Could not resolve Facebook URL" };
 }
-
-// ============================================================
-// EXTRACT VIDEO URL
-// ============================================================
-
-function extractFacebookVideoUrl(
-  html,
-  requestedId = ""
-) {
+function extractFacebookVideoUrl(html, requestedId = "") {
   if (!html) return "";
-
   const candidates = [];
-
-  const jsonScriptRegex =
-    /<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;
-
+  const jsonScriptRegex = /<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match;
-
-  while (
-    (match =
-      jsonScriptRegex.exec(html)) !== null
-  ) {
+  while ((match = jsonScriptRegex.exec(html)) !== null) {
     const raw = match[1];
-
     if (!raw) continue;
-
     try {
-      const json =
-        JSON.parse(raw);
-
-      walkVideoNodes(
-        json,
-        requestedId,
-        candidates
-      );
-    } catch { }
+      const json = JSON.parse(raw);
+      walkVideoNodes(json, requestedId, candidates);
+    } catch {}
   }
-
-  extractRawVideoUrls(
-    html,
-    requestedId,
-    candidates
-  );
-
-  candidates.sort(
-    (a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-
-      if (a.isHd !== b.isHd) {
-        return a.isHd ? -1 : 1;
-      }
-
-      return 0;
+  extractRawVideoUrls(html, requestedId, candidates);
+  candidates.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
     }
-  );
-
+    if (a.isHd !== b.isHd) {
+      return a.isHd ? -1 : 1;
+    }
+    return 0;
+  });
   for (const candidate of candidates) {
     if (!candidate.url) continue;
-
-    const decoded =
-      decodeEscapedUrl(
-        candidate.url
-      );
-
-    if (
-      /^https?:\/\//i.test(decoded) &&
-      /\.(mp4|m4v)(?:[?#]|$)/i.test(
-        decoded
-      )
-    ) {
+    const decoded = decodeEscapedUrl(candidate.url);
+    if (/^https?:\/\//i.test(decoded) && /\.(mp4|m4v)(?:[?#]|$)/i.test(decoded)) {
       return decoded;
     }
-
-    if (
-      /^https?:\/\//i.test(decoded) &&
-      /(?:video|fbcdn|scontent)/i.test(
-        decoded
-      )
-    ) {
+    if (/^https?:\/\//i.test(decoded) && /(?:video|fbcdn|scontent)/i.test(decoded)) {
       return decoded;
     }
   }
-
   return "";
 }
-
-function walkVideoNodes(
-  node,
-  requestedId,
-  candidates,
-  depth = 0
-) {
-  if (
-    !node ||
-    depth > 30 ||
-    typeof node === "string"
-  ) {
+function walkVideoNodes(node, requestedId, candidates, depth = 0) {
+  if (!node || depth > 30 || typeof node === "string") {
     return;
   }
-
   if (Array.isArray(node)) {
     for (const item of node) {
-      walkVideoNodes(
-        item,
-        requestedId,
-        candidates,
-        depth + 1
-      );
+      walkVideoNodes(item, requestedId, candidates, depth + 1);
     }
-
     return;
   }
-
   if (typeof node !== "object") {
     return;
   }
-
-  const hd =
-    node.browser_native_hd_url ||
-    node.browserNativeHdUrl ||
-    "";
-
-  const sd =
-    node.browser_native_sd_url ||
-    node.browserNativeSdUrl ||
-    "";
-
+  const hd = node.browser_native_hd_url || node.browserNativeHdUrl || "";
+  const sd = node.browser_native_sd_url || node.browserNativeSdUrl || "";
   if (hd) {
-    addVideoCandidate(
-      hd,
-      node,
-      requestedId,
-      candidates,
-      true
-    );
+    addVideoCandidate(hd, node, requestedId, candidates, !0);
   }
-
   if (sd) {
-    addVideoCandidate(
-      sd,
-      node,
-      requestedId,
-      candidates,
-      false
-    );
+    addVideoCandidate(sd, node, requestedId, candidates, !1);
   }
-
-  const legacy =
-    node.videoDeliveryLegacyFields;
-
-  if (
-    legacy &&
-    typeof legacy === "object"
-  ) {
-    const legacyHd =
-      legacy.browser_native_hd_url ||
-      legacy.browserNativeHdUrl ||
-      "";
-
-    const legacySd =
-      legacy.browser_native_sd_url ||
-      legacy.browserNativeSdUrl ||
-      "";
-
+  const legacy = node.videoDeliveryLegacyFields;
+  if (legacy && typeof legacy === "object") {
+    const legacyHd = legacy.browser_native_hd_url || legacy.browserNativeHdUrl || "";
+    const legacySd = legacy.browser_native_sd_url || legacy.browserNativeSdUrl || "";
     if (legacyHd) {
-      addVideoCandidate(
-        legacyHd,
-        node,
-        requestedId,
-        candidates,
-        true
-      );
+      addVideoCandidate(legacyHd, node, requestedId, candidates, !0);
     }
-
     if (legacySd) {
-      addVideoCandidate(
-        legacySd,
-        node,
-        requestedId,
-        candidates,
-        false
-      );
+      addVideoCandidate(legacySd, node, requestedId, candidates, !1);
     }
   }
-
-  for (const [
-    key,
-    value,
-  ] of Object.entries(node)) {
-    if (
-      key ===
-      "browser_native_hd_url" ||
-      key ===
-      "browser_native_sd_url" ||
-      key ===
-      "browserNativeHdUrl" ||
-      key ===
-      "browserNativeSdUrl" ||
-      key ===
-      "videoDeliveryLegacyFields"
-    ) {
+  for (const [key, value] of Object.entries(node)) {
+    if (key === "browser_native_hd_url" || key === "browser_native_sd_url" || key === "browserNativeHdUrl" || key === "browserNativeSdUrl" || key === "videoDeliveryLegacyFields") {
       continue;
     }
-
-    walkVideoNodes(
-      value,
-      requestedId,
-      candidates,
-      depth + 1
-    );
+    walkVideoNodes(value, requestedId, candidates, depth + 1);
   }
 }
-
-function addVideoCandidate(
-  url,
-  node,
-  requestedId,
-  candidates,
-  isHd
-) {
-  if (
-    !url ||
-    typeof url !== "string"
-  ) {
+function addVideoCandidate(url, node, requestedId, candidates, isHd) {
+  if (!url || typeof url !== "string") {
     return;
   }
-
   let score = 0;
   let serialized = "";
-
   try {
-    serialized =
-      JSON.stringify(node);
+    serialized = JSON.stringify(node);
   } catch {
     serialized = "";
   }
-
-  if (
-    requestedId &&
-    serialized &&
-    serialized.includes(
-      requestedId
-    )
-  ) {
+  if (requestedId && serialized && serialized.includes(requestedId)) {
     score += 100;
   }
-
   if (isHd) {
     score += 20;
   }
-
-  candidates.push({
-    url,
-    score,
-    isHd,
-  });
+  candidates.push({ url, score, isHd });
 }
-
-function extractRawVideoUrls(
-  html,
-  requestedId,
-  candidates
-) {
-  const keys = [
-    "browser_native_hd_url",
-    "browser_native_sd_url",
-  ];
-
+function extractRawVideoUrls(html, requestedId, candidates) {
+  const keys = ["browser_native_hd_url", "browser_native_sd_url"];
   for (const key of keys) {
-    const regex =
-      new RegExp(
-        `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
-        "gi"
-      );
-
+    const regex = new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "gi");
     let match;
-
-    while (
-      (match =
-        regex.exec(html)) !== null
-    ) {
-      const surroundingStart =
-        Math.max(
-          0,
-          match.index - 5000
-        );
-
-      const surroundingEnd =
-        Math.min(
-          html.length,
-          match.index +
-          match[0].length +
-          5000
-        );
-
-      const surrounding =
-        html.slice(
-          surroundingStart,
-          surroundingEnd
-        );
-
+    while ((match = regex.exec(html)) !== null) {
+      const surroundingStart = Math.max(0, match.index - 5000);
+      const surroundingEnd = Math.min(html.length, match.index + match[0].length + 5000);
+      const surrounding = html.slice(surroundingStart, surroundingEnd);
       let score = 0;
-
-      if (
-        requestedId &&
-        surrounding.includes(
-          requestedId
-        )
-      ) {
+      if (requestedId && surrounding.includes(requestedId)) {
         score += 100;
       }
-
-      if (
-        key ===
-        "browser_native_hd_url"
-      ) {
+      if (key === "browser_native_hd_url") {
         score += 20;
       }
-
-      candidates.push({
-        url: match[1],
-        score,
-        isHd:
-          key ===
-          "browser_native_hd_url",
-      });
+      candidates.push({ url: match[1], score, isHd: key === "browser_native_hd_url" });
     }
   }
 }
-
 function extractVideoId(url) {
   if (!url) return "";
-
-  const patterns = [
-    /\/videos\/(\d+)/i,
-    /\/video\/(\d+)/i,
-    /\/reel\/(\d+)/i,
-    /\/reels\/(\d+)/i,
-  ];
-
+  const patterns = [/\/videos\/(\d+)/i, /\/video\/(\d+)/i, /\/reel\/(\d+)/i, /\/reels\/(\d+)/i];
   for (const regex of patterns) {
-    const match =
-      url.match(regex);
-
+    const match = url.match(regex);
     if (match?.[1]) {
       return match[1];
     }
   }
-
   return "";
 }
-
-// ============================================================
-// HTML PAGE FOR DISCORD EMBED (FIX MOBILE VIDEO EMBED)
-// ============================================================
-
 function htmlPage(data) {
-  const {
-    sourceUrl,
-    videoUrl,
-    title,
-    authorName,
-    description,
-    image,
-    images = [],
-  } = data;
-
-  const safeTitle =
-    authorName ||
-    title ||
-    "Facebook Content";
-
-  const safeDescription =
-    description ||
-    "Facebook content converted by C2Z";
-
-  // หากเป็นวิดีโอ ให้ใส่ og:image แค่รูปเดียวเท่านั้น เพื่อป้องกันไม่ให้มือถือ Render เป็น Gallery Grid
-  const imageList = videoUrl
-    ? (image ? [image] : [])
-    : Array.from(
-        new Set(
-          [
-            image,
-            ...(Array.isArray(images) ? images : []),
-          ].filter(Boolean)
-        )
-      ).slice(0, 10);
-
+  const { sourceUrl, videoUrl, title, authorName, description, image, images = [] } = data;
+  const safeTitle = authorName || title || "Facebook Content";
+  const safeDescription = description || "Facebook content converted by C2Z";
+  const imageList = videoUrl ? (image ? [image] : []) : Array.from(new Set([image, ...(Array.isArray(images) ? images : [])].filter(Boolean))).slice(0, 10);
   const ogImages = imageList
     .map(
       (imageUrl) => `
-<meta
-  property="og:image"
-  content="${escapeHtml(imageUrl)}"
->
-<meta
-  property="og:image:width"
-  content="1280"
->
-<meta
-  property="og:image:height"
-  content="720"
->
-`
+<meta property="og:image" content="${escapeHtml(imageUrl)}">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="720">
+`,
     )
     .join("");
 
   return `<!DOCTYPE html>
 <html lang="th">
-
 <head>
-
 <meta charset="UTF-8">
-
 <title>${escapeHtml(safeTitle)}</title>
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <!-- Standard HTML metadata -->
-
-<meta
-  name="description"
-  content="${escapeHtml(safeDescription)}"
->
+<meta name="description" content="${escapeHtml(safeDescription)}">
 
 <!-- Open Graph -->
-
-<meta
-  property="og:site_name"
-  content="Facebook Fix Embed by C2Z"
->
-
-<meta
-  property="og:title"
-  content="${escapeHtml(safeTitle)}"
->
-
-<meta
-  property="og:description"
-  content="${escapeHtml(safeDescription)}"
->
-
-<meta
-  property="og:type"
-  content="${videoUrl ? "video.other" : "website"}"
->
-
-<meta
-  property="og:url"
-  content="${escapeHtml(sourceUrl || "")}"
->
+<meta property="og:site_name" content="Facebook Fix Embed by C2Z">
+<meta property="og:title" content="${escapeHtml(safeTitle)}">
+<meta property="og:description" content="${escapeHtml(safeDescription)}">
+<meta property="og:type" content="${videoUrl ? "video.other" : "website"}">
+<meta property="og:url" content="${escapeHtml(sourceUrl || "")}">
 
 ${ogImages}
 
-${videoUrl
-      ? `
-
+${
+  videoUrl
+    ? `
 <!-- Open Graph Video -->
-
-<meta
-  property="og:video"
-  content="${escapeHtml(videoUrl)}"
->
-
-<meta
-  property="og:video:url"
-  content="${escapeHtml(videoUrl)}"
->
-
-<meta
-  property="og:video:secure_url"
-  content="${escapeHtml(videoUrl)}"
->
-
-<meta
-  property="og:video:type"
-  content="video/mp4"
->
-
-<meta
-  property="og:video:width"
-  content="1280"
->
-
-<meta
-  property="og:video:height"
-  content="720"
->
+<meta property="og:video" content="${escapeHtml(videoUrl)}">
+<meta property="og:video:url" content="${escapeHtml(videoUrl)}">
+<meta property="og:video:secure_url" content="${escapeHtml(videoUrl)}">
+<meta property="og:video:type" content="video/mp4">
+<meta property="og:video:width" content="1280">
+<meta property="og:video:height" content="720">
 
 <!-- Twitter -->
-
-<meta
-  name="twitter:card"
-  content="player"
->
-
-<meta
-  name="twitter:title"
-  content="${escapeHtml(safeTitle)}"
->
-
-<meta
-  name="twitter:description"
-  content="${escapeHtml(safeDescription)}"
->
-
-${image
-        ? `
-<meta
-  name="twitter:image"
-  content="${escapeHtml(image)}"
->
+<meta name="twitter:card" content="player">
+<meta name="twitter:title" content="${escapeHtml(safeTitle)}">
+<meta name="twitter:description" content="${escapeHtml(safeDescription)}">
+${
+  image
+    ? `
+<meta name="twitter:image" content="${escapeHtml(image)}">
 `
-        : ""
-      }
-
-<meta
-  name="twitter:player:stream"
-  content="${escapeHtml(videoUrl)}"
->
-
-<meta
-  name="twitter:player:stream:content_type"
-  content="video/mp4"
->
-
-<meta
-  name="twitter:player:width"
-  content="1280"
->
-
-<meta
-  name="twitter:player:height"
-  content="720"
->
-
+    : ""
+}
+<meta name="twitter:player:stream" content="${escapeHtml(videoUrl)}">
+<meta name="twitter:player:stream:content_type" content="video/mp4">
+<meta name="twitter:player:width" content="1280">
+<meta name="twitter:player:height" content="720">
 `
-      : ""
-    }
+    : ""
+}
 
 </head>
 
 <body>
-
 <h1>
 ${escapeHtml(safeTitle)}
 </h1>
@@ -2014,265 +776,50 @@ ${escapeHtml(safeTitle)}
 <p>
 ${escapeHtml(safeDescription)}
 </p>
-
 </body>
-
 </html>`;
 }
-
-// ============================================================
-// ERROR RESPONSE
-// ============================================================
-
-function errorResponse(
-  message,
-  status = 400
-) {
-  return new Response(
-    JSON.stringify({
-      success: false,
-      error: message,
-    }),
-    {
-      status,
-
-      headers: {
-        "Content-Type":
-          "application/json; charset=UTF-8",
-
-        "Cache-Control":
-          "no-store",
-      },
-    }
-  );
+function errorResponse(message, status = 400) {
+  return new Response(JSON.stringify({ success: !1, error: message }), { status, headers: { "Content-Type": "application/json; charset=UTF-8", "Cache-Control": "no-store" } });
 }
-
-// ============================================================
-// WORKER MAIN FETCH
-// ============================================================
-
 export default {
   async fetch(request) {
-    const requestUrl =
-      new URL(request.url);
-
-    // ========================================================
-    // TEST PAGE
-    // ========================================================
-
-    if (
-      requestUrl.searchParams.has(
-        "test"
-      )
-    ) {
-      const testValue =
-        requestUrl.searchParams
-          .get("test")
-          ?.trim() || "";
-
+    const requestUrl = new URL(request.url);
+    if (requestUrl.searchParams.has("test")) {
+      const testValue = requestUrl.searchParams.get("test")?.trim() || "";
       if (!testValue) {
-        return new Response(
-          renderTestPage({}),
-          {
-            status: 200,
-
-            headers: {
-              "Content-Type":
-                "text/html; charset=UTF-8",
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
-          }
-        );
+        return new Response(renderTestPage({}), { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } });
       }
-
       if (!isFacebookUrl(testValue)) {
-        return new Response(
-          renderTestPage({
-            inputUrl:
-              testValue,
-
-            error:
-              "URL นี้ไม่ใช่ Facebook URL ที่รองรับ",
-          }),
-          {
-            status: 400,
-
-            headers: {
-              "Content-Type":
-                "text/html; charset=UTF-8",
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
-          }
-        );
+        return new Response(renderTestPage({ inputUrl: testValue, error: "URL นี้ไม่ใช่ Facebook URL ที่รองรับ" }), { status: 400, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } });
       }
-
       try {
-        const resolved =
-          await resolveFacebookShare(
-            testValue
-          );
-
-        let html =
-          resolved.html || "";
-
-        let finalUrl =
-          resolved.resolvedUrl ||
-          resolved.finalUrl ||
-          testValue;
-
+        const resolved = await resolveFacebookShare(testValue);
+        let html = resolved.html || "";
+        let finalUrl = resolved.resolvedUrl || resolved.finalUrl || testValue;
         if (!html && finalUrl) {
-          const detailResponse =
-            await fetch(
-              finalUrl,
-              {
-                method: "GET",
-
-                redirect: "follow",
-
-                headers:
-                  FACEBOOK_HEADERS,
-              }
-            );
-
-          html =
-            await detailResponse.text();
-
-          finalUrl =
-            detailResponse.url ||
-            finalUrl;
+          const detailResponse = await fetch(finalUrl, { method: "GET", redirect: "follow", headers: FACEBOOK_HEADERS });
+          html = await detailResponse.text();
+          finalUrl = detailResponse.url || finalUrl;
         }
-
-        const pageInfo =
-          inspectFacebookPage(
-            html,
-            finalUrl
-          );
-
-        const stats =
-          extractFacebookStats(
-            html
-          );
-
-        const authorName =
-          pageInfo.authorName ||
-          resolved.authorName ||
-          "";
-
-        return new Response(
-          renderTestPage({
-            inputUrl:
-              testValue,
-
-            resolvedUrl:
-              pageInfo.canonical ||
-              pageInfo.ogUrl ||
-              resolved.resolvedUrl ||
-              finalUrl,
-
-            // ชื่อคนโพสต์เป็น title
-            title:
-              authorName ||
-              pageInfo.title ||
-              resolved.title ||
-              "",
-
-            authorName,
-
-            description:
-              pageInfo.description ||
-              resolved.description ||
-              "",
-
-            image:
-              pageInfo.image ||
-              resolved.image ||
-              "",
-
-            stats,
-          }),
-          {
-            status: 200,
-
-            headers: {
-              "Content-Type":
-                "text/html; charset=UTF-8",
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
-          }
-        );
+        const pageInfo = inspectFacebookPage(html, finalUrl);
+        const stats = extractFacebookStats(html);
+        const authorName = pageInfo.authorName || resolved.authorName || "";
+        return new Response(renderTestPage({ inputUrl: testValue, resolvedUrl: pageInfo.canonical || pageInfo.ogUrl || resolved.resolvedUrl || finalUrl, title: authorName || pageInfo.title || resolved.title || "", authorName, description: pageInfo.description || resolved.description || "", image: pageInfo.image || resolved.image || "", stats }), { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } });
       } catch (error) {
-        return new Response(
-          renderTestPage({
-            inputUrl:
-              testValue,
-
-            error:
-              error?.message ||
-              "เกิดข้อผิดพลาดระหว่างดึงข้อมูล Facebook",
-          }),
-          {
-            status: 500,
-
-            headers: {
-              "Content-Type":
-                "text/html; charset=UTF-8",
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
-          }
-        );
+        return new Response(renderTestPage({ inputUrl: testValue, error: error?.message || "เกิดข้อผิดพลาดระหว่างดึงข้อมูล Facebook" }), { status: 500, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } });
       }
     }
-
-    // ========================================================
-    // BOT DETECTION
-    // ========================================================
-
-    const ua =
-      (
-        request.headers.get(
-          "user-agent"
-        ) || ""
-      ).toLowerCase();
-
-    const isDiscordOrBot =
-      ua.includes("discordbot") ||
-      ua.includes("telegrambot") ||
-      ua.includes("twitterbot") ||
-      ua.includes(
-        "facebookexternalhit"
-      );
-
-    // ========================================================
-    // 1. HOME
-    // ========================================================
-
-    if (
-      requestUrl.pathname === "/" &&
-      !requestUrl.searchParams.has(
-        "url"
-      )
-    ) {
+    const ua = (request.headers.get("user-agent") || "").toLowerCase();
+    const isDiscordOrBot = ua.includes("discordbot") || ua.includes("telegrambot") || ua.includes("twitterbot") || ua.includes("facebookexternalhit");
+    if (requestUrl.pathname === "/" && !requestUrl.searchParams.has("url")) {
       return new Response(
         `<!DOCTYPE html>
 <html lang="th">
 <head>
-
-<meta charset="UTF-8">
-
-<meta
-  name="viewport"
-  content="width=device-width, initial-scale=1"
->
-
-<title>Facebook Fix Embed by C2Z</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Facebook Fix Embed by C2Z</title>
 
   <meta name="title" content="Facebook Fix Embed by C2Z">
   <meta name="description" content="สร้างตัวฝังคลิปบน Discord">
@@ -2301,849 +848,397 @@ export default {
   <meta name="twitter:description" content="สร้างตัวฝังคลิปบน Discord">
   <meta name="twitter:image" content="https://c2z.top/assets/images/fb_c2z_ogm.png">
 
-<style>
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-height: 100vh;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background:
-    radial-gradient(
-      circle at top,
-      #302b63 0%,
-      #24243e 45%,
-      #151515 100%
-    );
-
-  color: #ffffff;
-
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
-}
-
-.container {
-  width: min(680px, calc(100% - 32px));
-
-  padding: 32px;
-
-  background: rgba(20, 20, 20, 0.92);
-
-  border: 1px solid rgba(255, 255, 255, 0.08);
-
-  border-radius: 18px;
-
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.45);
-}
-
-.logo {
-  text-align: center;
-
-  font-size: 32px;
-  font-weight: 700;
-
-  margin-bottom: 6px;
-}
-
-.subtitle {
-  text-align: center;
-
-  color: #aaa;
-
-  margin-bottom: 28px;
-}
-
-label {
-  display: block;
-
-  margin-bottom: 8px;
-
-  font-weight: 600;
-}
-
-.input-row {
-  display: flex;
-  gap: 10px;
-}
-
-input {
-  flex: 1;
-
-  min-width: 0;
-
-  padding: 14px 16px;
-
-  border: 1px solid #444;
-
-  border-radius: 10px;
-
-  background: #111;
-
-  color: #fff;
-
-  font-size: 15px;
-
-  outline: none;
-}
-
-input:focus {
-  border-color: #667eea;
-}
-
-button {
-  border: 0;
-
-  border-radius: 10px;
-
-  padding: 14px 20px;
-
-  background: #667eea;
-
-  color: white;
-
-  font-size: 15px;
-
-  font-weight: 600;
-
-  cursor: pointer;
-}
-
-button:hover {
-  background: #7289da;
-}
-
-.result {
-  display: none;
-
-  margin-top: 24px;
-}
-
-.result-title {
-  margin-bottom: 8px;
-
-  font-weight: 600;
-}
-
-.result-row {
-  display: flex;
-  gap: 10px;
-}
-
-.result input {
-  background: #0d0d0d;
-}
-
-.copy {
-  white-space: nowrap;
-}
-
-.error {
-  display: none;
-
-  margin-top: 14px;
-
-  padding: 12px 14px;
-
-  border-radius: 10px;
-
-  background: rgba(255, 70, 70, 0.12);
-
-  color: #ff8585;
-}
-
-.hint {
-  margin-top: 22px;
-
-  color: #888;
-
-  font-size: 13px;
-
-  line-height: 1.6;
-
-  text-align: center;
-}
-
-@media (max-width: 600px) {
-
-  .container {
-    padding: 24px;
-  }
-
-  .input-row {
-    flex-direction: column;
-  }
-
-  button {
-    width: 100%;
-  }
-
-  .result-row {
-    flex-direction: column;
-  }
-
-}
-
-</style>
-
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(
+        circle at top,
+        #302b63 0%,
+        #24243e 45%,
+        #151515 100%
+      );
+      color: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .container {
+      width: min(680px, calc(100% - 32px));
+      padding: 32px;
+      background: rgba(20, 20, 20, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    .logo {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #aaa;
+      margin-bottom: 28px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 14px 16px;
+      border: 1px solid #444;
+      border-radius: 10px;
+      background: #111;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #667eea;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 14px 20px;
+      background: #667eea;
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #7289da;
+    }
+
+    .result {
+      display: none;
+      margin-top: 24px;
+    }
+
+    .result-title {
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .result-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .result input {
+      background: #0d0d0d;
+    }
+
+    .copy {
+      white-space: nowrap;
+    }
+
+    .error {
+      display: none;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: rgba(255, 70, 70, 0.12);
+      color: #ff8585;
+    }
+
+    .hint {
+      margin-top: 22px;
+      color: #888;
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 24px;
+      }
+
+      .input-row {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .result-row {
+        flex-direction: column;
+      }
+    }
+  </style>
 </head>
 
 <body>
-
-<div class="container">
-
-  <div class="logo">
-    Facebook Fix Embed by C2Z
-  </div>
-
-  <div class="subtitle">
-    สร้างตัวฝังคลิปและโพสบน Discord
-  </div>
-
-  <form id="form">
-
-    <label for="facebookUrl">
-      Facebook URL
-    </label>
-
-    <div class="input-row">
-
-      <input
-        id="facebookUrl"
-        type="url"
-        placeholder="https://www.facebook.com/reel/..."
-        autocomplete="off"
-        required
-      >
-
-      <button type="submit">
-        สร้างลิงก์
-      </button>
-
+  <div class="container">
+    <div class="logo">
+      Facebook Fix Embed by C2Z
     </div>
 
-  </form>
-
-  <div
-    id="error"
-    class="error"
-  ></div>
-
-  <div
-    id="result"
-    class="result"
-  >
-
-    <div class="result-title">
-      Fix Embed Link
+    <div class="subtitle">
+      สร้างตัวฝังคลิปและโพสบน Discord
     </div>
 
-    <div class="result-row">
+    <form id="form">
+      <label for="facebookUrl">
+        Facebook URL
+      </label>
 
-      <input
-        id="resultUrl"
-        type="text"
-        readonly
-      >
+      <div class="input-row">
+        <input
+          id="facebookUrl"
+          type="url"
+          placeholder="https://www.facebook.com/reel/..."
+          autocomplete="off"
+          required
+        >
 
-      <button
-        id="copyButton"
-        class="copy"
-        type="button"
-      >
-        คัดลอก
-      </button>
+        <button type="submit">
+          สร้างลิงก์
+        </button>
+      </div>
+    </form>
 
+    <div id="error" class="error"></div>
+
+    <div id="result" class="result">
+      <div class="result-title">
+        Fix Embed Link
+      </div>
+
+      <div class="result-row">
+        <input
+          id="resultUrl"
+          type="text"
+          readonly
+        >
+
+        <button
+          id="copyButton"
+          class="copy"
+          type="button"
+        >
+          คัดลอก
+        </button>
+      </div>
     </div>
 
+    <div class="hint">
+      วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>
+      ระบบจะเปลี่ยนเป็นลิงก์ C2Z ให้อัตโนมัติ
+    </div>
   </div>
 
-  <div class="hint">
-    วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>
-    ระบบจะเปลี่ยนเป็นลิงก์ C2Z ให้อัตโนมัติ
-  </div>
+  <script>
+    const form = document.getElementById("form");
+    const input = document.getElementById("facebookUrl");
+    const result = document.getElementById("result");
+    const resultUrl = document.getElementById("resultUrl");
+    const error = document.getElementById("error");
+    const copyButton = document.getElementById("copyButton");
 
-</div>
+    function isFacebookUrl(value) {
+      try {
+        const url = new URL(value);
+        const host = url.hostname.toLowerCase();
 
-<script>
-
-const form =
-  document.getElementById("form");
-
-const input =
-  document.getElementById("facebookUrl");
-
-const result =
-  document.getElementById("result");
-
-const resultUrl =
-  document.getElementById("resultUrl");
-
-const error =
-  document.getElementById("error");
-
-const copyButton =
-  document.getElementById("copyButton");
-
-
-function isFacebookUrl(value) {
-
-  try {
-
-    const url =
-      new URL(value);
-
-    const host =
-      url.hostname.toLowerCase();
-
-    return (
-      host === "facebook.com" ||
-      host === "www.facebook.com" ||
-      host.endsWith(".facebook.com") ||
-      host === "fb.watch"
-    );
-
-  } catch {
-
-    return false;
-
-  }
-
-}
-
-
-form.addEventListener(
-  "submit",
-  function(event) {
-
-    event.preventDefault();
-
-    const value =
-      input.value.trim();
-
-    error.style.display =
-      "none";
-
-    result.style.display =
-      "none";
-
-    if (!isFacebookUrl(value)) {
-
-      error.textContent =
-        "กรุณาใส่ลิงก์ Facebook ที่ถูกต้อง";
-
-      error.style.display =
-        "block";
-
-      return;
-
+        return (
+          host === "facebook.com" ||
+          host === "www.facebook.com" ||
+          host.endsWith(".facebook.com") ||
+          host === "fb.watch"
+        );
+      } catch {
+        return false;
+      }
     }
 
-    try {
+    form.addEventListener("submit", function(event) {
+      event.preventDefault();
 
-      const facebookUrl =
-  new URL(value);
+      const value = input.value.trim();
 
-let c2zUrl =
-  window.location.origin +
-  facebookUrl.pathname +
-  facebookUrl.search;
+      error.style.display = "none";
+      result.style.display = "none";
 
-// ==========================================================
-// Facebook Group multi_permalinks
-//
-// จาก:
-// https://www.facebook.com/groups/793585658907555/
-// ?multi_permalinks=1413733430226105
-//
-// เป็น:
-// https://fb.c2z.top/groups/793585658907555/permalink/1413733430226105
-// ==========================================================
+      if (!isFacebookUrl(value)) {
+        error.textContent = "กรุณาใส่ลิงก์ Facebook ที่ถูกต้อง";
+        error.style.display = "block";
+        return;
+      }
 
-const groupMatch =
-  facebookUrl.pathname.match(
-    /^\\/groups\\/([^/]+)\\/?$/i
-  );
+      try {
+        const facebookUrl = new URL(value);
 
-const multiPermalink =
-  facebookUrl.searchParams.get(
-    "multi_permalinks"
-  );
+        let c2zUrl =
+          window.location.origin +
+          facebookUrl.pathname +
+          facebookUrl.search;
 
-if (
-  groupMatch &&
-  multiPermalink &&
-  /^\\d+$/.test(multiPermalink)
-) {
-  c2zUrl =
-    window.location.origin +
-    "/groups/" +
-    groupMatch[1] +
-    "/permalink/" +
-    multiPermalink;
-}
+        // ==========================================================
+        // Facebook Group multi_permalinks
+        //
+        // จาก:
+        // https://www.facebook.com/groups/793585658907555/
+        // ?multi_permalinks=1413733430226105
+        //
+        // เป็น:
+        // https://fb.c2z.top/groups/793585658907555/permalink/1413733430226105
+        // ==========================================================
 
-resultUrl.value =
-  c2zUrl;
+        const groupMatch = facebookUrl.pathname.match(
+          /^\\/groups\\/([^/]+)\\/?$/i
+        );
 
-      result.style.display =
-        "block";
+        const multiPermalink = facebookUrl.searchParams.get(
+          "multi_permalinks"
+        );
 
-    } catch {
+        if (
+          groupMatch &&
+          multiPermalink &&
+          /^\\d+$/.test(multiPermalink)
+        ) {
+          c2zUrl =
+            window.location.origin +
+            "/groups/" +
+            groupMatch[1] +
+            "/permalink/" +
+            multiPermalink;
+        }
 
-      error.textContent =
-        "ไม่สามารถสร้างลิงก์ได้";
+        resultUrl.value = c2zUrl;
+        result.style.display = "block";
+      } catch {
+        error.textContent = "ไม่สามารถสร้างลิงก์ได้";
+        error.style.display = "block";
+      }
+    });
 
-      error.style.display =
-        "block";
+    copyButton.addEventListener("click", async function() {
+      try {
+        await navigator.clipboard.writeText(resultUrl.value);
 
-    }
+        copyButton.textContent = "คัดลอกแล้ว";
 
-  }
-);
+        setTimeout(function() {
+          copyButton.textContent = "คัดลอก";
+        }, 1500);
+      } catch {
+        resultUrl.select();
+        document.execCommand("copy");
 
+        copyButton.textContent = "คัดลอกแล้ว";
 
-copyButton.addEventListener(
-  "click",
-  async function() {
-
-    try {
-
-      await navigator.clipboard.writeText(
-        resultUrl.value
-      );
-
-      copyButton.textContent =
-        "คัดลอกแล้ว";
-
-      setTimeout(
-        function() {
-
-          copyButton.textContent =
-            "คัดลอก";
-
-        },
-        1500
-      );
-
-    } catch {
-
-      resultUrl.select();
-
-      document.execCommand("copy");
-
-      copyButton.textContent =
-        "คัดลอกแล้ว";
-
-      setTimeout(
-        function() {
-
-          copyButton.textContent =
-            "คัดลอก";
-
-        },
-        1500
-      );
-
-    }
-
-  }
-);
-
-</script>
-
+        setTimeout(function() {
+          copyButton.textContent = "คัดลอก";
+        }, 1500);
+      }
+    });
+  </script>
 </body>
 </html>`,
-        {
-          status: 200,
-
-          headers: {
-            "Content-Type":
-              "text/html; charset=UTF-8",
-
-            "Cache-Control":
-              "no-store, max-age=0",
-          },
-        }
+        { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } },
       );
     }
-
-    // ========================================================
-    // 2. EMBEDDED FACEBOOK URL
-    //
-    // /https://www.facebook.com/...
-    // ========================================================
-
-    const embeddedFacebookUrl =
-      extractFacebookUrlFromPath(
-        requestUrl
-      );
-
-    let normalizedEmbeddedFacebookUrl =
-      embeddedFacebookUrl;
-
+    const embeddedFacebookUrl = extractFacebookUrlFromPath(requestUrl);
+    let normalizedEmbeddedFacebookUrl = embeddedFacebookUrl;
     if (embeddedFacebookUrl) {
       try {
-        const embeddedUrl =
-          new URL(
-            embeddedFacebookUrl
-          );
-
-        const normalized =
-          normalizeFacebookGroupMultiPermalink(
-            embeddedUrl.pathname,
-            embeddedUrl.search
-          );
-
+        const embeddedUrl = new URL(embeddedFacebookUrl);
+        const normalized = normalizeFacebookGroupMultiPermalink(embeddedUrl.pathname, embeddedUrl.search);
         if (normalized) {
-          normalizedEmbeddedFacebookUrl =
-            normalized;
+          normalizedEmbeddedFacebookUrl = normalized;
         }
-      } catch { }
+      } catch {}
     }
-
     if (embeddedFacebookUrl) {
       if (!isDiscordOrBot) {
-        return Response.redirect(
-          normalizedEmbeddedFacebookUrl,
-          302
-        );
+        return Response.redirect(normalizedEmbeddedFacebookUrl, 302);
       }
-
       try {
-        const resolved =
-          await resolveFacebookShare(
-            normalizedEmbeddedFacebookUrl
-          );
-
-        let videoUrl =
-          extractFacebookVideoUrl(
-            resolved.html,
-            extractVideoId(
-              resolved.resolvedUrl
-            )
-          );
-
-        if (
-          !videoUrl &&
-          resolved.resolvedUrl
-        ) {
-          const videoResp =
-            await fetch(
-              resolved.resolvedUrl,
-              {
-                headers:
-                  FACEBOOK_HEADERS,
-              }
-            );
-
-          const videoHtml =
-            await videoResp.text();
-
-          videoUrl =
-            extractFacebookVideoUrl(
-              videoHtml,
-              extractVideoId(
-                resolved.resolvedUrl
-              )
-            );
+        const resolved = await resolveFacebookShare(normalizedEmbeddedFacebookUrl);
+        let videoUrl = extractFacebookVideoUrl(resolved.html, extractVideoId(resolved.resolvedUrl));
+        if (!videoUrl && resolved.resolvedUrl) {
+          const videoResp = await fetch(resolved.resolvedUrl, { headers: FACEBOOK_HEADERS });
+          const videoHtml = await videoResp.text();
+          videoUrl = extractFacebookVideoUrl(videoHtml, extractVideoId(resolved.resolvedUrl));
         }
-
-        let discordVideoUrl =
-          "";
-
+        let discordVideoUrl = "";
         if (videoUrl) {
-          discordVideoUrl =
-            new URL(
-              "/video",
-              requestUrl.origin
-            ).href +
-            "?url=" +
-            encodeURIComponent(
-              normalizedEmbeddedFacebookUrl
-            );
+          discordVideoUrl = new URL("/video", requestUrl.origin).href + "?url=" + encodeURIComponent(normalizedEmbeddedFacebookUrl);
         }
-
-        return new Response(
-          htmlPage({
-            sourceUrl:
-              normalizedEmbeddedFacebookUrl,
-
-            resolvedUrl:
-              resolved.resolvedUrl,
-
-            videoUrl:
-              discordVideoUrl,
-
-            title:
-              resolved.title,
-
-            authorName:
-              resolved.authorName,
-
-            description:
-              resolved.description,
-
-            image:
-              resolved.image,
-
-            images:
-              resolved.images,
-          }),
-          {
-            status: 200,
-
-            headers: {
-              "Content-Type":
-                "text/html; charset=UTF-8",
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
-          }
-        );
+        return new Response(htmlPage({ sourceUrl: normalizedEmbeddedFacebookUrl, resolvedUrl: resolved.resolvedUrl, videoUrl: discordVideoUrl, title: resolved.title, authorName: resolved.authorName, description: resolved.description, image: resolved.image, images: resolved.images }), { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } });
       } catch (error) {
-        return errorResponse(
-          "Embedded URL resolver error",
-          500
-        );
+        return errorResponse("Embedded URL resolver error", 500);
       }
     }
-
-    // ========================================================
-    // 3. SUPPORTED FACEBOOK ROUTES
-    // ========================================================
-
-    if (
-      isSupportedFacebookPath(
-        requestUrl.pathname,
-        requestUrl.search
-      )
-    ) {
-      const normalizedGroupUrl =
-        normalizeFacebookGroupMultiPermalink(
-          requestUrl.pathname,
-          requestUrl.search
-        );
-
-      const facebookUrl =
-        normalizedGroupUrl ||
-        (
-          "https://www.facebook.com" +
-          requestUrl.pathname +
-          requestUrl.search
-        );
-
+    if (isSupportedFacebookPath(requestUrl.pathname, requestUrl.search)) {
+      const normalizedGroupUrl = normalizeFacebookGroupMultiPermalink(requestUrl.pathname, requestUrl.search);
+      const facebookUrl = normalizedGroupUrl || "https://www.facebook.com" + requestUrl.pathname + requestUrl.search;
       if (!isDiscordOrBot) {
-        return Response.redirect(
-          facebookUrl,
-          302
-        );
+        return Response.redirect(facebookUrl, 302);
       }
-
       try {
-        const resolved =
-          await resolveFacebookShare(
-            facebookUrl
-          );
-
-        let videoUrl =
-          extractFacebookVideoUrl(
-            resolved.html,
-            extractVideoId(
-              resolved.resolvedUrl
-            )
-          );
-
-        if (
-          !videoUrl &&
-          resolved.resolvedUrl
-        ) {
-          const videoResp =
-            await fetch(
-              resolved.resolvedUrl,
-              {
-                headers:
-                  FACEBOOK_HEADERS,
-              }
-            );
-
-          const videoHtml =
-            await videoResp.text();
-
-          videoUrl =
-            extractFacebookVideoUrl(
-              videoHtml,
-              extractVideoId(
-                resolved.resolvedUrl
-              )
-            );
+        const resolved = await resolveFacebookShare(facebookUrl);
+        let videoUrl = extractFacebookVideoUrl(resolved.html, extractVideoId(resolved.resolvedUrl));
+        if (!videoUrl && resolved.resolvedUrl) {
+          const videoResp = await fetch(resolved.resolvedUrl, { headers: FACEBOOK_HEADERS });
+          const videoHtml = await videoResp.text();
+          videoUrl = extractFacebookVideoUrl(videoHtml, extractVideoId(resolved.resolvedUrl));
         }
-
-        let discordVideoUrl =
-          "";
-
+        let discordVideoUrl = "";
         if (videoUrl) {
-          discordVideoUrl =
-            new URL(
-              "/video",
-              requestUrl.origin
-            ).href +
-            "?url=" +
-            encodeURIComponent(
-              facebookUrl
-            );
+          discordVideoUrl = new URL("/video", requestUrl.origin).href + "?url=" + encodeURIComponent(facebookUrl);
         }
-
-        return new Response(
-          htmlPage({
-            sourceUrl:
-              facebookUrl,
-
-            resolvedUrl:
-              resolved.resolvedUrl,
-
-            videoUrl:
-              discordVideoUrl,
-
-            title:
-              resolved.title,
-
-            authorName:
-              resolved.authorName,
-
-            description:
-              resolved.description,
-
-            image:
-              resolved.image,
-
-            images:
-              resolved.images,
-          }),
-          {
-            status: 200,
-
-            headers: {
-              "Content-Type":
-                "text/html; charset=UTF-8",
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
-          }
-        );
+        return new Response(htmlPage({ sourceUrl: facebookUrl, resolvedUrl: resolved.resolvedUrl, videoUrl: discordVideoUrl, title: resolved.title, authorName: resolved.authorName, description: resolved.description, image: resolved.image, images: resolved.images }), { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } });
       } catch (error) {
-        return errorResponse(
-          "Facebed route error",
-          500
-        );
+        return errorResponse("Facebed route error", 500);
       }
     }
-
-    // ========================================================
-    // 4. /video
-    // ========================================================
-
-    const sourceUrl =
-      requestUrl.searchParams.get(
-        "url"
-      );
-
-    if (
-      requestUrl.pathname ===
-      "/video" &&
-      sourceUrl
-    ) {
-      const facebookUrl =
-        decodeURIComponent(
-          sourceUrl
-        );
-
+    const sourceUrl = requestUrl.searchParams.get("url");
+    if (requestUrl.pathname === "/video" && sourceUrl) {
+      const facebookUrl = decodeURIComponent(sourceUrl);
       try {
-        const resolved =
-          await resolveFacebookShare(
-            facebookUrl
-          );
-
-        let videoUrl =
-          extractFacebookVideoUrl(
-            resolved.html,
-            extractVideoId(
-              resolved.resolvedUrl
-            )
-          );
-
-        if (
-          !videoUrl &&
-          resolved.resolvedUrl
-        ) {
-          const videoResp =
-            await fetch(
-              resolved.resolvedUrl,
-              {
-                headers:
-                  FACEBOOK_HEADERS,
-              }
-            );
-
-          const videoHtml =
-            await videoResp.text();
-
-          videoUrl =
-            extractFacebookVideoUrl(
-              videoHtml,
-              extractVideoId(
-                resolved.resolvedUrl
-              )
-            );
+        const resolved = await resolveFacebookShare(facebookUrl);
+        let videoUrl = extractFacebookVideoUrl(resolved.html, extractVideoId(resolved.resolvedUrl));
+        if (!videoUrl && resolved.resolvedUrl) {
+          const videoResp = await fetch(resolved.resolvedUrl, { headers: FACEBOOK_HEADERS });
+          const videoHtml = await videoResp.text();
+          videoUrl = extractFacebookVideoUrl(videoHtml, extractVideoId(resolved.resolvedUrl));
         }
-
         if (!videoUrl) {
-          return errorResponse(
-            "Video URL not found",
-            404
-          );
+          return errorResponse("Video URL not found", 404);
         }
-
-        return new Response(
-          null,
-          {
-            status: 302,
-
-            headers: {
-              Location:
-                videoUrl,
-
-              "Cache-Control":
-                "no-store, max-age=0",
-            },
-          }
-        );
+        return new Response(null, { status: 302, headers: { Location: videoUrl, "Cache-Control": "no-store, max-age=0" } });
       } catch (error) {
-        return errorResponse(
-          "Internal resolver error",
-          500
-        );
+        return errorResponse("Internal resolver error", 500);
       }
     }
-
-    // ========================================================
-    // 404
-    // ========================================================
-
-    return errorResponse(
-      "Route not found",
-      404
-    );
+    return errorResponse("Route not found", 404);
   },
 };
