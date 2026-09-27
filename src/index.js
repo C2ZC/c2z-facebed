@@ -2066,6 +2066,33 @@ if (
 
 <title>C2Z Facebed</title>
 
+  <meta name="title" content="C2Z Facebed">
+  <meta name="description" content="ฝังวิดีโอ บน Discord">
+  <meta name="author" content="C2Z">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="https://c2z.top/assets/images/avatar.png">
+
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#624c3d">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="fb.C2Z.top">
+  <meta property="og:title" content="C2Z Facebed">
+  <meta property="og:description" content="ฝังวิดีโอ บน Discord">
+  <meta property="og:url" content="https://c2z.top/">
+  <meta property="og:image" content="https://c2z.top/assets/images/c2z_ogm.png">
+  <meta property="og:logo" content="https://c2z.top/assets/images/avatar.png">
+
+  <!-- X (Twitter) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta property="twitter:domain" content="fb.C2Z.top">
+  <meta property="twitter:url" content="https://fb.C2Z.top">
+  <meta name="twitter:title" content="C2Z Facebed">
+  <meta name="twitter:description" content="ฝังวิดีโอ บน Discord">
+  <meta name="twitter:image" content="https://c2z.top/assets/images/c2z_ogm.png">
+
 <style>
 
 * {
