@@ -219,13 +219,16 @@ function renderTestPage({ inputUrl = "", resolvedUrl = "", title = "", authorNam
   const pageTitle = safeAuthorName || safeTitle || "C2Z Facebed Test";
   const pageDescription = safeDescription || (safeAuthorName ? `โพสต์ Facebook โดย ${safeAuthorName}` : "ทดสอบการดึงข้อมูลจาก Facebook ด้วย C2Z Facebed");
   const statRows = [
-  ["ชื่อคนโพสต์", safeAuthorName || "ไม่พบข้อมูล"],
-  ["ชื่อโพสต์ / วิดีโอ", safeTitle || "ไม่พบข้อมูล"],
-  ["ความคิดเห็น", formatTestNumber(safeStats.comments)],
-  ["เวลาสร้างโพสต์", safeStats.creationTime ? String(safeStats.creationTime) : "ไม่พบข้อมูล"],
-  ["URL ที่ส่ง", safeInputUrl || "—"],
-  ["URL ที่ Resolve ได้", safeResolvedUrl || "ไม่พบข้อมูล"],
-];
+    ["ชื่อคนโพสต์", safeAuthorName || "ไม่พบข้อมูล"],
+    ["ชื่อโพสต์ / วิดีโอ", safeTitle || "ไม่พบข้อมูล"],
+    ["ถูกใจ / ปฏิกิริยา", formatTestNumber(safeStats.reactions)],
+    ["ความคิดเห็น", formatTestNumber(safeStats.comments)],
+    ["แชร์", formatTestNumber(safeStats.shares)],
+    ["ยอดดู", formatTestNumber(safeStats.views)],
+    ["เวลาสร้างโพสต์", safeStats.creationTime ? String(safeStats.creationTime) : "ไม่พบข้อมูล"],
+    ["URL ที่ส่ง", safeInputUrl || "—"],
+    ["URL ที่ Resolve ได้", safeResolvedUrl || "ไม่พบข้อมูล"],
+  ];
   return `<!DOCTYPE html>
 
 <html lang="th">
