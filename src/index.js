@@ -236,6 +236,135 @@ function extractFacebookOwnerName(html) {
 }
 
 // ============================================================
+// FACEBOOK POST IMAGES
+// ============================================================
+
+function extractFacebookImages(html, baseUrl = "") {
+  const images = [];
+  const seen = new Set();
+
+  if (!html) {
+    return images;
+  }
+
+  function addImage(value) {
+    if (!value) return;
+
+    let url = decodeEscapedUrl(value);
+
+    if (!url) return;
+
+    url = makeAbsoluteUrl(url, baseUrl);
+
+    if (!url) return;
+
+    // รับเฉพาะ URL HTTP/HTTPS
+    if (!/^https?:\/\//i.test(url)) {
+      return;
+    }
+
+    /*
+     * Facebook รูปภาพมักอยู่บนโดเมนเหล่านี้
+     * เช่น:
+     * scontent.xx.fbcdn.net
+     * scontent.xx.facebook.com
+     * lookaside.fbsbx.com
+     */
+    if (
+      !/(fbcdn\.net|facebook\.com|fbsbx\.com)/i.test(url)
+    ) {
+      return;
+    }
+
+    /*
+     * กัน URL ซ้ำ
+     */
+    if (seen.has(url)) {
+      return;
+    }
+
+    seen.add(url);
+    images.push(url);
+  }
+
+  /*
+   * ==========================================================
+   * 1. og:image
+   * ==========================================================
+   *
+   * รูปหลักของโพสต์
+   */
+  const ogImageRegex =
+    /<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["']/gi;
+
+  let match;
+
+  while (
+    (match = ogImageRegex.exec(html)) !== null
+  ) {
+    addImage(match[1]);
+  }
+
+  /*
+   * ==========================================================
+   * 2. Facebook GraphQL:
+   *
+   * "image":{"uri":"https://scontent...."}
+   * ==========================================================
+   *
+   * โพสต์รูปหลายรูปของ Facebook มักมีข้อมูลประมาณ:
+   *
+   * all_subattachments
+   *   -> nodes
+   *      -> media
+   *         -> image
+   *            -> uri
+   *
+   * เราดึง uri ออกมาโดยตรง
+   */
+  const imageUriRegex =
+    /"image"\s*:\s*\{\s*"uri"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
+
+  while (
+    (match = imageUriRegex.exec(html)) !== null
+  ) {
+    addImage(match[1]);
+  }
+
+  /*
+   * ==========================================================
+   * 3. viewer_image.uri
+   * ==========================================================
+   *
+   * บางโพสต์ Facebook จะมี:
+   *
+   * "viewer_image":{
+   *   "uri":"https://..."
+   * }
+   *
+   * ใช้เป็น fallback
+   */
+  const viewerImageRegex =
+    /"viewer_image"\s*:\s*\{[\s\S]{0,1000}?"uri"\s*:\s*"((?:\\.|[^"\\])*)"/gi;
+
+  while (
+    (match = viewerImageRegex.exec(html)) !== null
+  ) {
+    addImage(match[1]);
+  }
+
+  /*
+   * ==========================================================
+   * จำกัดจำนวนรูป
+   * ==========================================================
+   *
+   * Discord ไม่จำเป็นต้องส่งรูปจำนวนมหาศาล
+   * จำกัดไว้ 10 รูปก่อน
+   */
+  return images.slice(0, 10);
+}
+
+// ============================================================
 // TEST PAGE DATA
 // ============================================================
 
@@ -1007,15 +1136,21 @@ function inspectFacebookPage(
     "";
 
   const image =
-    getMeta(
+  getMeta(
+    html,
+    "og:image"
+  ) ||
+  getMeta(
+    html,
+    "twitter:image"
+  ) ||
+  "";
+
+  const images =
+    extractFacebookImages(
       html,
-      "og:image"
-    ) ||
-    getMeta(
-      html,
-      "twitter:image"
-    ) ||
-    "";
+      baseUrl
+    );
 
   return {
     canonical,
@@ -1024,6 +1159,7 @@ function inspectFacebookPage(
     authorName,
     description,
     image,
+    images,
   };
 }
 
@@ -1112,6 +1248,9 @@ async function resolveFacebookShare(
           image:
             pageInfo.image,
 
+          images:
+            pageInfo.images,
+
           reason:
             "HEAD redirect + GET metadata",
         };
@@ -1175,6 +1314,9 @@ async function resolveFacebookShare(
       image:
         pageInfo.image,
 
+      images:
+        pageInfo.images,
+
       reason:
         "canonical/og:url resolved",
     };
@@ -1208,6 +1350,9 @@ async function resolveFacebookShare(
       image:
         pageInfo.image,
 
+      images:
+        pageInfo.images,
+
       reason:
         "final URL resolved",
     };
@@ -1233,6 +1378,9 @@ async function resolveFacebookShare(
 
     image:
       pageInfo.image,
+
+    images:
+      pageInfo.images,
 
     reason:
       isLoginPath(finalUrl)
@@ -1606,6 +1754,7 @@ function htmlPage(data) {
     authorName,
     description,
     image,
+    images = [],
   } = data;
 
   // ชื่อคนโพสต์มาก่อนเสมอ
@@ -1617,6 +1766,34 @@ function htmlPage(data) {
   const safeDescription =
     description ||
     "Facebook video converted by Facebed";
+
+  const imageList = Array.from(
+    new Set(
+      [
+        image,
+        ...(Array.isArray(images) ? images : []),
+      ].filter(Boolean)
+    )
+  ).slice(0, 10);
+
+  const ogImages = imageList
+    .map(
+      (imageUrl) => `
+<meta
+  property="og:image"
+  content="${escapeHtml(imageUrl)}"
+>
+<meta
+  property="og:image:width"
+  content="1280"
+>
+<meta
+  property="og:image:height"
+  content="720"
+>
+`
+    )
+    .join("");
 
   return `<!DOCTYPE html>
 <html lang="th">
@@ -1676,28 +1853,7 @@ function htmlPage(data) {
   )}"
 >
 
-${
-  image
-    ? `
-<meta
-  property="og:image"
-  content="${escapeHtml(
-    image
-  )}"
->
-
-<meta
-  property="og:image:width"
-  content="1280"
->
-
-<meta
-  property="og:image:height"
-  content="720"
->
-`
-    : ""
-}
+${ogImages}
 
 ${
   videoUrl
@@ -2630,6 +2786,9 @@ copyButton.addEventListener(
 
             image:
               resolved.image,
+
+            images:
+              resolved.images,
           }),
           {
             status: 200,
@@ -2749,6 +2908,9 @@ copyButton.addEventListener(
 
             image:
               resolved.image,
+            
+            images:
+              resolved.images,
           }),
           {
             status: 200,
