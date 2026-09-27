@@ -1502,7 +1502,7 @@ function htmlPage(data) {
     "Facebook video converted by Facebed";
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
 
 <meta charset="UTF-8">
@@ -1528,8 +1528,19 @@ function htmlPage(data) {
   content="C2Z Facebed"
 >
 
-<meta property="og:title" content="${escapeHtml(safeTitle)}">
-<meta property="og:description" content="${escapeHtml(description || "")}">
+<meta
+  property="og:title"
+  content="${escapeHtml(
+    safeTitle
+  )}"
+>
+
+<meta
+  property="og:description"
+  content="${escapeHtml(
+    safeDescription
+  )}"
+>
 
 <meta
   property="og:type"
@@ -1545,9 +1556,12 @@ function htmlPage(data) {
 
 ${
   image
-    ? `<meta property="og:image" content="${escapeHtml(
-        image
-      )}">`
+    ? `<meta
+  property="og:image"
+  content="${escapeHtml(
+    image
+  )}"
+>`
     : ""
 }
 
@@ -1627,6 +1641,7 @@ ${
   name="twitter:player:stream:content_type"
   content="video/mp4"
 >
+
 `
     : ""
 }
