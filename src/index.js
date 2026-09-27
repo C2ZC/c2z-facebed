@@ -125,20 +125,40 @@ function extractFacebookImages(html, baseUrl = "") {
   }
   function addImage(value) {
     if (!value) return;
+
     let url = decodeEscapedUrl(value);
+
     if (!url) return;
+
     url = makeAbsoluteUrl(url, baseUrl);
+
     if (!url) return;
+
     if (!/^https?:\/\//i.test(url)) {
       return;
     }
+
     if (!/(fbcdn\.net|facebook\.com|fbsbx\.com)/i.test(url)) {
       return;
     }
-    if (seen.has(url)) {
-      return;
+
+    try {
+      const parsedUrl = new URL(url);
+      const key = parsedUrl.origin + parsedUrl.pathname;
+
+      if (seen.has(key)) {
+        return;
+      }
+
+      seen.add(key);
+    } catch {
+      if (seen.has(url)) {
+        return;
+      }
+
+      seen.add(url);
     }
-    seen.add(url);
+
     images.push(url);
   }
   const ogImageRegex = /<meta[^>]+(?:property|name)=["']og:image["'][^>]+content=["']([^"']+)["']/gi;
@@ -254,24 +274,24 @@ function renderTestPage({ inputUrl = "", resolvedUrl = "", title = "", authorNam
   const pageTitle = safeAuthorName || safeTitle || "C2Z Facebed Test";
   const pageDescription = safeDescription || (safeAuthorName ? `โพสต์ Facebook โดย ${safeAuthorName}` : "ทดสอบการดึงข้อมูลจาก Facebook ด้วย C2Z Facebed");
   const statRows = [
-  ["ชื่อคนโพสต์", safeAuthorName || "ไม่พบข้อมูล"],
+    ["ชื่อคนโพสต์", safeAuthorName || "ไม่พบข้อมูล"],
 
-  ["ชื่อโพสต์ / วิดีโอ", safeTitle || "ไม่พบข้อมูล"],
+    ["ชื่อโพสต์ / วิดีโอ", safeTitle || "ไม่พบข้อมูล"],
 
-  ["ถูกใจ / ปฏิกิริยา", formatTestNumber(safeStats.reactions)],
+    ["ถูกใจ / ปฏิกิริยา", formatTestNumber(safeStats.reactions)],
 
-  ["ความคิดเห็น", formatTestNumber(safeStats.comments)],
+    ["ความคิดเห็น", formatTestNumber(safeStats.comments)],
 
-  ["แชร์", formatTestNumber(safeStats.shares)],
+    ["แชร์", formatTestNumber(safeStats.shares)],
 
-  ["ยอดดู", formatTestNumber(safeStats.views)],
+    ["ยอดดู", formatTestNumber(safeStats.views)],
 
-  ["เวลาสร้างโพสต์", safeStats.creationTime ? String(safeStats.creationTime) : "ไม่พบข้อมูล"],
+    ["เวลาสร้างโพสต์", safeStats.creationTime ? String(safeStats.creationTime) : "ไม่พบข้อมูล"],
 
-  ["URL ที่ส่ง", safeInputUrl || "—"],
+    ["URL ที่ส่ง", safeInputUrl || "—"],
 
-  ["URL ที่ Resolve ได้", safeResolvedUrl || "ไม่พบข้อมูล"],
-];
+    ["URL ที่ Resolve ได้", safeResolvedUrl || "ไม่พบข้อมูล"],
+  ];
   return `<!DOCTYPE html>
 
 <html lang="th">
@@ -749,7 +769,39 @@ function htmlPage(data) {
   const { sourceUrl, videoUrl, title, authorName, description, image, images = [] } = data;
   const safeTitle = authorName || title || "Facebook Content";
   const safeDescription = description || "Facebook content converted by C2Z";
-  const imageList = videoUrl ? (image ? [image] : []) : Array.from(new Set([image, ...(Array.isArray(images) ? images : [])].filter(Boolean))).slice(0, 10);
+  const imageList = videoUrl
+    ? image
+      ? [image]
+      : []
+    : (() => {
+        const result = [];
+        const seen = new Set();
+
+        for (const imageUrl of [image, ...(Array.isArray(images) ? images : [])]) {
+          if (!imageUrl) {
+            continue;
+          }
+
+          try {
+            const url = new URL(imageUrl);
+            const key = url.origin + url.pathname;
+
+            if (seen.has(key)) {
+              continue;
+            }
+
+            seen.add(key);
+            result.push(imageUrl);
+          } catch {
+            if (!seen.has(imageUrl)) {
+              seen.add(imageUrl);
+              result.push(imageUrl);
+            }
+          }
+        }
+
+        return result.slice(0, 10);
+      })();
   const ogImages = imageList
     .map(
       (imageUrl) => `
