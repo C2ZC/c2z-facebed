@@ -32,15 +32,33 @@ function escapeHtml(value) {
 }
 
 function decodeHtmlEntities(value) {
-  return String(value ?? "")
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/gi, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#x2F;/gi, "/")
-    .replace(/&#47;/g, "/");
+  if (!value) return "";
+
+  return String(value)
+    // Hexadecimal: &#x0e01;
+    .replace(/&#x([0-9a-fA-F]+);?/g, (_, hex) => {
+      const codePoint = parseInt(hex, 16);
+      return Number.isFinite(codePoint)
+        ? String.fromCodePoint(codePoint)
+        : _;
+    })
+
+    // Decimal: &#3585;
+    .replace(/&#([0-9]+);?/g, (_, decimal) => {
+      const codePoint = parseInt(decimal, 10);
+      return Number.isFinite(codePoint)
+        ? String.fromCodePoint(codePoint)
+        : _;
+    })
+
+    // Common named entities
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&nbsp;/gi, " ");
 }
 
 function decodeEscapedUrl(value) {
