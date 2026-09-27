@@ -613,20 +613,14 @@ function htmlPage(data) {
   const safeTitle = authorName || title || "Facebook Content";
   const safeDescription = description || "Facebook content converted by C2Z";
 
-  // ดึงรายการรูปภาพทั้งหมดที่ไม่เป็นค่าว่าง
-  const rawImageList = Array.from(new Set([image, ...(Array.isArray(images) ? images : [])].filter(Boolean)));
+  // ดึงเฉพาะรูปแรกรูปเดียวที่ดึงได้ (เลือกระหว่าง image หลัก หรือ รูปแรกใน images)
+  const primaryImage = image || (Array.isArray(images) && images.length > 0 ? images[0] : "");
 
-  // หากเป็นวิดีโอ หรือมีรูปภาพแค่รูปเดียว ให้ส่งภาพเดียวเป็น Thumbnail หลัก
-  // หากเป็นโพสต์หลายรูปจริงๆ (มากกว่า 1) จึงค่อยส่งเป็น Gallery
-  const imageList = videoUrl ? (image ? [image] : []) : rawImageList.length <= 1 ? (rawImageList[0] ? [rawImageList[0]] : []) : rawImageList.slice(0, 10);
-
-  const ogImages = imageList
-    .map(
-      (imageUrl) => `<meta property="og:image" content="${escapeHtml(imageUrl)}">
+  const ogImages = primaryImage
+    ? `<meta property="og:image" content="${escapeHtml(primaryImage)}">
 <meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="720">`,
-    )
-    .join("\n");
+<meta property="og:image:height" content="720">`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="th">
@@ -661,7 +655,7 @@ ${
 <meta name="twitter:card" content="player">
 <meta name="twitter:title" content="${escapeHtml(safeTitle)}">
 <meta name="twitter:description" content="${escapeHtml(safeDescription)}">
-${image ? `<meta name="twitter:image" content="${escapeHtml(image)}">` : ""}
+${primaryImage ? `<meta name="twitter:image" content="${escapeHtml(primaryImage)}">` : ""}
 <meta name="twitter:player:stream" content="${escapeHtml(videoUrl)}">
 <meta name="twitter:player:stream:content_type" content="video/mp4">
 <meta name="twitter:player:width" content="1280">
