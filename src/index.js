@@ -18,8 +18,9 @@ const FACEBOOK_HEADERS = {
   "Sec-Fetch-User": "?1",
 };
 
+
 // ============================================================
-// Basic helpers
+// BASIC HELPERS
 // ============================================================
 
 function escapeHtml(value) {
@@ -30,6 +31,7 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
 
 function decodeHtmlEntities(value) {
   return String(value ?? "")
@@ -42,6 +44,7 @@ function decodeHtmlEntities(value) {
     .replace(/&#x2F;/gi, "/")
     .replace(/&#47;/g, "/");
 }
+
 
 function decodeEscapedUrl(value) {
   if (!value) return "";
@@ -64,6 +67,7 @@ function decodeEscapedUrl(value) {
   return result;
 }
 
+
 function isFacebookUrl(value) {
   try {
     const url = new URL(value);
@@ -81,6 +85,7 @@ function isFacebookUrl(value) {
   }
 }
 
+
 function isSharePath(value) {
   try {
     const url = new URL(value);
@@ -90,6 +95,7 @@ function isSharePath(value) {
   }
 }
 
+
 function isLoginPath(value) {
   try {
     const url = new URL(value);
@@ -98,6 +104,7 @@ function isLoginPath(value) {
     return false;
   }
 }
+
 
 function makeAbsoluteUrl(value, baseUrl) {
   if (!value) return "";
@@ -109,14 +116,20 @@ function makeAbsoluteUrl(value, baseUrl) {
   }
 }
 
+
 function getMeta(html, propertyOrName) {
-  const escaped = propertyOrName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escaped =
+    propertyOrName.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&"
+    );
 
   const patterns = [
     new RegExp(
       `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)["']`,
       "i"
     ),
+
     new RegExp(
       `<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["']`,
       "i"
@@ -133,6 +146,7 @@ function getMeta(html, propertyOrName) {
 
   return "";
 }
+
 
 function getCanonical(html) {
   const match = html.match(
@@ -154,14 +168,17 @@ function getCanonical(html) {
   return "";
 }
 
+
 function looksLikePostUrl(value) {
   if (!value) return false;
 
   try {
     const url = new URL(value);
 
-    if (!/facebook\.com$/i.test(url.hostname) &&
-        !/\.facebook\.com$/i.test(url.hostname)) {
+    if (
+      !/facebook\.com$/i.test(url.hostname) &&
+      !/\.facebook\.com$/i.test(url.hostname)
+    ) {
       return false;
     }
 
@@ -177,16 +194,214 @@ function looksLikePostUrl(value) {
   }
 }
 
+
 // ============================================================
-// Inspect Facebook page
+// SUPPORTED FACEBED ROUTES
 // ============================================================
 
-function inspectFacebookPage(html, baseUrl) {
-  const canonicalRaw = getCanonical(html);
-  const ogUrlRaw = getMeta(html, "og:url");
+function isSupportedFacebookPath(
+  pathname,
+  search = ""
+) {
+  const path =
+    pathname.replace(/\/+$/, "");
 
-  const canonical = makeAbsoluteUrl(canonicalRaw, baseUrl);
-  const ogUrl = makeAbsoluteUrl(ogUrlRaw, baseUrl);
+  const params =
+    new URLSearchParams(search);
+
+  // /share/r/:hash
+  if (
+    /^\/share\/r\/[^/]+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /share/p/:hash
+  if (
+    /^\/share\/p\/[^/]+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /share/v/:hash
+  if (
+    /^\/share\/v\/[^/]+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /share/:hash
+  if (
+    /^\/share\/[^/]+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /:user/posts/:id
+  // /:user/posts/:hash
+  if (
+    /^\/[^/]+\/posts\/[^/]+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /:user/videos/:id
+  if (
+    /^\/[^/]+\/videos\/\d+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /groups/:id/posts/:id
+  // /groups/:id/posts/:hash
+  if (
+    /^\/groups\/[^/]+\/posts\/[^/]+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /groups/:id/permalink/:id
+  // /groups/:id/permalink/:hash
+  if (
+    /^\/groups\/[^/]+\/permalink\/[^/]+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /reel/:id
+  if (
+    /^\/reel\/\d+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /reels/:id
+  if (
+    /^\/reels\/\d+$/i.test(path)
+  ) {
+    return true;
+  }
+
+  // /watch?v=123
+  if (
+    /^\/watch$/i.test(path) &&
+    params.has("v")
+  ) {
+    return true;
+  }
+
+  // /permalink.php?story_fbid=...
+  if (
+    /^\/permalink\.php$/i.test(path) &&
+    params.has("story_fbid")
+  ) {
+    return true;
+  }
+
+  // /story.php?story_fbid=...
+  if (
+    /^\/story\.php$/i.test(path) &&
+    params.has("story_fbid")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+// ============================================================
+// FULL FACEBOOK URL IN PATH
+//
+// Example:
+//
+// https://fb.c2z.top/https://www.facebook.com/share/r/xxxxx/
+//
+// becomes:
+//
+// https://www.facebook.com/share/r/xxxxx/
+// ============================================================
+
+function extractFacebookUrlFromPath(
+  requestUrl
+) {
+  let path =
+    requestUrl.pathname;
+
+  // Remove first /
+  if (path.startsWith("/")) {
+    path =
+      path.substring(1);
+  }
+
+  // Decode URL if encoded
+  try {
+    path =
+      decodeURIComponent(path);
+  } catch {
+    // Keep original
+  }
+
+  // Must be a full HTTP/HTTPS URL
+  if (
+    !/^https?:\/\//i.test(path)
+  ) {
+    return "";
+  }
+
+  let facebookUrl = path;
+
+  // Preserve query string
+  //
+  // Example:
+  //
+  // /https://www.facebook.com/watch?v=123
+  //
+  // becomes:
+  //
+  // pathname = /https://www.facebook.com/watch
+  // search   = ?v=123
+
+  if (requestUrl.search) {
+    facebookUrl +=
+      requestUrl.search;
+  }
+
+  if (
+    !isFacebookUrl(facebookUrl)
+  ) {
+    return "";
+  }
+
+  return facebookUrl;
+}
+
+
+// ============================================================
+// INSPECT FACEBOOK PAGE
+// ============================================================
+
+function inspectFacebookPage(
+  html,
+  baseUrl
+) {
+  const canonicalRaw =
+    getCanonical(html);
+
+  const ogUrlRaw =
+    getMeta(html, "og:url");
+
+  const canonical =
+    makeAbsoluteUrl(
+      canonicalRaw,
+      baseUrl
+    );
+
+  const ogUrl =
+    makeAbsoluteUrl(
+      ogUrlRaw,
+      baseUrl
+    );
 
   const title =
     getMeta(html, "og:title") ||
@@ -212,59 +427,93 @@ function inspectFacebookPage(html, baseUrl) {
   };
 }
 
+
 // ============================================================
-// Resolve Facebook /share/ URL
+// RESOLVE FACEBOOK URL
 // ============================================================
 
-async function resolveFacebookShare(sourceUrl) {
+async function resolveFacebookShare(
+  sourceUrl
+) {
   // ----------------------------------------------------------
   // 1. HEAD redirect
   // ----------------------------------------------------------
 
   try {
-    const headResponse = await fetch(sourceUrl, {
-      method: "HEAD",
-      redirect: "follow",
-      headers: FACEBOOK_HEADERS,
-    });
+    const headResponse =
+      await fetch(
+        sourceUrl,
+        {
+          method: "HEAD",
+          redirect: "follow",
+          headers:
+            FACEBOOK_HEADERS,
+        }
+      );
 
-    const headFinalUrl = headResponse.url || "";
+    const headFinalUrl =
+      headResponse.url || "";
 
     if (
       headFinalUrl &&
-      !isSharePath(headFinalUrl) &&
-      !isLoginPath(headFinalUrl) &&
-      looksLikePostUrl(headFinalUrl)
+      !isSharePath(
+        headFinalUrl
+      ) &&
+      !isLoginPath(
+        headFinalUrl
+      ) &&
+      looksLikePostUrl(
+        headFinalUrl
+      )
     ) {
       return {
         success: true,
-        resolvedUrl: headFinalUrl,
+        resolvedUrl:
+          headFinalUrl,
         html: "",
-        reason: "HEAD redirect",
+        reason:
+          "HEAD redirect",
       };
     }
   } catch (error) {
-    console.log("HEAD resolve failed:", error?.message || error);
+    console.log(
+      "HEAD resolve failed:",
+      error?.message ||
+        error
+    );
   }
 
   // ----------------------------------------------------------
   // 2. GET original URL
   // ----------------------------------------------------------
 
-  const response = await fetch(sourceUrl, {
-    method: "GET",
-    redirect: "follow",
-    headers: FACEBOOK_HEADERS,
-  });
+  const response =
+    await fetch(
+      sourceUrl,
+      {
+        method: "GET",
+        redirect: "follow",
+        headers:
+          FACEBOOK_HEADERS,
+      }
+    );
 
-  const html = await response.text();
-  const finalUrl = response.url || sourceUrl;
+  const html =
+    await response.text();
+
+  const finalUrl =
+    response.url ||
+    sourceUrl;
 
   // ----------------------------------------------------------
-  // 3. Read canonical / og:url
+  // 3. canonical / og:url
   // ----------------------------------------------------------
 
-  const pageInfo = inspectFacebookPage(html, finalUrl);
+  const pageInfo =
+    inspectFacebookPage(
+      html,
+      finalUrl
+    );
 
   const declaredUrl =
     pageInfo.canonical ||
@@ -273,40 +522,60 @@ async function resolveFacebookShare(sourceUrl) {
 
   if (
     declaredUrl &&
-    !isSharePath(declaredUrl) &&
-    !isLoginPath(declaredUrl)
+    !isSharePath(
+      declaredUrl
+    ) &&
+    !isLoginPath(
+      declaredUrl
+    )
   ) {
     return {
       success: true,
-      resolvedUrl: declaredUrl,
+      resolvedUrl:
+        declaredUrl,
       html,
       finalUrl,
-      title: pageInfo.title,
-      description: pageInfo.description,
-      image: pageInfo.image,
-      reason: "canonical/og:url resolved",
+      title:
+        pageInfo.title,
+      description:
+        pageInfo.description,
+      image:
+        pageInfo.image,
+      reason:
+        "canonical/og:url resolved",
     };
   }
 
   // ----------------------------------------------------------
-  // 4. Final URL itself
+  // 4. Final URL
   // ----------------------------------------------------------
 
   if (
     finalUrl &&
-    !isSharePath(finalUrl) &&
-    !isLoginPath(finalUrl) &&
-    looksLikePostUrl(finalUrl)
+    !isSharePath(
+      finalUrl
+    ) &&
+    !isLoginPath(
+      finalUrl
+    ) &&
+    looksLikePostUrl(
+      finalUrl
+    )
   ) {
     return {
       success: true,
-      resolvedUrl: finalUrl,
+      resolvedUrl:
+        finalUrl,
       html,
       finalUrl,
-      title: pageInfo.title,
-      description: pageInfo.description,
-      image: pageInfo.image,
-      reason: "final URL resolved",
+      title:
+        pageInfo.title,
+      description:
+        pageInfo.description,
+      image:
+        pageInfo.image,
+      reason:
+        "final URL resolved",
     };
   }
 
@@ -315,26 +584,38 @@ async function resolveFacebookShare(sourceUrl) {
     resolvedUrl: "",
     html,
     finalUrl,
-    title: pageInfo.title,
-    description: pageInfo.description,
-    image: pageInfo.image,
-    reason: isLoginPath(finalUrl)
-      ? "Facebook login page"
-      : "Could not resolve Facebook URL",
+    title:
+      pageInfo.title,
+    description:
+      pageInfo.description,
+    image:
+      pageInfo.image,
+    reason:
+      isLoginPath(
+        finalUrl
+      )
+        ? "Facebook login page"
+        : "Could not resolve Facebook URL",
   };
 }
 
+
 // ============================================================
-// Extract video URL
+// EXTRACT VIDEO URL
 // ============================================================
 
-function extractFacebookVideoUrl(html, requestedId = "") {
-  if (!html) return "";
+function extractFacebookVideoUrl(
+  html,
+  requestedId = ""
+) {
+  if (!html) {
+    return "";
+  }
 
   const candidates = [];
 
   // ----------------------------------------------------------
-  // A. application/json blocks
+  // A. application/json
   // ----------------------------------------------------------
 
   const jsonScriptRegex =
@@ -342,18 +623,29 @@ function extractFacebookVideoUrl(html, requestedId = "") {
 
   let match;
 
-  while ((match = jsonScriptRegex.exec(html)) !== null) {
-    const raw = match[1];
+  while (
+    (match =
+      jsonScriptRegex.exec(
+        html
+      )) !== null
+  ) {
+    const raw =
+      match[1];
 
     if (!raw) continue;
 
     try {
-      const json = JSON.parse(raw);
+      const json =
+        JSON.parse(raw);
 
-      walkVideoNodes(json, requestedId, candidates);
+      walkVideoNodes(
+        json,
+        requestedId,
+        candidates
+      );
     } catch {
-      // Some Facebook JSON blocks aren't valid standalone JSON.
-      // Fallback regex below will handle them.
+      // Facebook sometimes has
+      // incomplete/non-standalone JSON.
     }
   }
 
@@ -361,41 +653,77 @@ function extractFacebookVideoUrl(html, requestedId = "") {
   // B. Raw HTML fallback
   // ----------------------------------------------------------
 
-  extractRawVideoUrls(html, requestedId, candidates);
+  extractRawVideoUrls(
+    html,
+    requestedId,
+    candidates
+  );
 
   // ----------------------------------------------------------
-  // C. Rank candidates
+  // C. Sort
   // ----------------------------------------------------------
 
-  candidates.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score;
+  candidates.sort(
+    (a, b) => {
+      if (
+        b.score !== a.score
+      ) {
+        return (
+          b.score -
+          a.score
+        );
+      }
+
+      if (
+        a.isHd !==
+        b.isHd
+      ) {
+        return a.isHd
+          ? -1
+          : 1;
+      }
+
+      return 0;
+    }
+  );
+
+  // ----------------------------------------------------------
+  // D. Return best candidate
+  // ----------------------------------------------------------
+
+  for (
+    const candidate
+    of candidates
+  ) {
+    if (!candidate.url) {
+      continue;
     }
 
-    // Prefer HD.
-    if (a.isHd !== b.isHd) {
-      return a.isHd ? -1 : 1;
-    }
-
-    return 0;
-  });
-
-  for (const candidate of candidates) {
-    if (!candidate.url) continue;
-
-    const decoded = decodeEscapedUrl(candidate.url);
+    const decoded =
+      decodeEscapedUrl(
+        candidate.url
+      );
 
     if (
-      /^https?:\/\//i.test(decoded) &&
-      /\.(mp4|m4v)(?:[?#]|$)/i.test(decoded)
+      /^https?:\/\//i.test(
+        decoded
+      ) &&
+      /\.(mp4|m4v)(?:[?#]|$)/i.test(
+        decoded
+      )
     ) {
       return decoded;
     }
 
-    // Facebook CDN URLs don't always end with .mp4.
+    // Facebook CDN URLs don't
+    // always end in .mp4.
     if (
-      /^https?:\/\//i.test(decoded) &&
-      /(?:video|fbcdn|scontent)/i.test(decoded)
+      /^https?:\/\//i.test(
+        decoded
+      ) &&
+      /(?:video|fbcdn|scontent)/i.test(
+        decoded
+      )
     ) {
       return decoded;
     }
@@ -404,26 +732,52 @@ function extractFacebookVideoUrl(html, requestedId = "") {
   return "";
 }
 
+
 // ============================================================
-// Walk JSON recursively
+// WALK JSON
 // ============================================================
 
-function walkVideoNodes(node, requestedId, candidates, depth = 0) {
-  if (!node || depth > 30) return;
-
-  if (typeof node === "string") {
+function walkVideoNodes(
+  node,
+  requestedId,
+  candidates,
+  depth = 0
+) {
+  if (
+    !node ||
+    depth > 30
+  ) {
     return;
   }
 
-  if (Array.isArray(node)) {
-    for (const item of node) {
-      walkVideoNodes(item, requestedId, candidates, depth + 1);
+  if (
+    typeof node ===
+    "string"
+  ) {
+    return;
+  }
+
+  if (
+    Array.isArray(node)
+  ) {
+    for (
+      const item of node
+    ) {
+      walkVideoNodes(
+        item,
+        requestedId,
+        candidates,
+        depth + 1
+      );
     }
 
     return;
   }
 
-  if (typeof node !== "object") {
+  if (
+    typeof node !==
+    "object"
+  ) {
     return;
   }
 
@@ -461,9 +815,14 @@ function walkVideoNodes(node, requestedId, candidates, depth = 0) {
   // videoDeliveryLegacyFields
   // ----------------------------------------------------------
 
-  const legacy = node.videoDeliveryLegacyFields;
+  const legacy =
+    node.videoDeliveryLegacyFields;
 
-  if (legacy && typeof legacy === "object") {
+  if (
+    legacy &&
+    typeof legacy ===
+      "object"
+  ) {
     const legacyHd =
       legacy.browser_native_hd_url ||
       legacy.browserNativeHdUrl ||
@@ -496,23 +855,43 @@ function walkVideoNodes(node, requestedId, candidates, depth = 0) {
   }
 
   // ----------------------------------------------------------
-  // Continue recursively
+  // Recursive
   // ----------------------------------------------------------
 
-  for (const [key, value] of Object.entries(node)) {
+  for (
+    const [
+      key,
+      value
+    ] of Object.entries(node)
+  ) {
     if (
-      key === "browser_native_hd_url" ||
-      key === "browser_native_sd_url" ||
-      key === "browserNativeHdUrl" ||
-      key === "browserNativeSdUrl" ||
-      key === "videoDeliveryLegacyFields"
+      key ===
+        "browser_native_hd_url" ||
+      key ===
+        "browser_native_sd_url" ||
+      key ===
+        "browserNativeHdUrl" ||
+      key ===
+        "browserNativeSdUrl" ||
+      key ===
+        "videoDeliveryLegacyFields"
     ) {
       continue;
     }
 
-    walkVideoNodes(value, requestedId, candidates, depth + 1);
+    walkVideoNodes(
+      value,
+      requestedId,
+      candidates,
+      depth + 1
+    );
   }
 }
+
+
+// ============================================================
+// ADD VIDEO CANDIDATE
+// ============================================================
 
 function addVideoCandidate(
   url,
@@ -521,23 +900,33 @@ function addVideoCandidate(
   candidates,
   isHd
 ) {
-  if (!url || typeof url !== "string") return;
+  if (
+    !url ||
+    typeof url !==
+      "string"
+  ) {
+    return;
+  }
 
   let score = 0;
 
   let serialized = "";
 
   try {
-    serialized = JSON.stringify(node);
+    serialized =
+      JSON.stringify(
+        node
+      );
   } catch {
     serialized = "";
   }
 
-  // Strong match if requested video ID appears in same node.
   if (
     requestedId &&
     serialized &&
-    serialized.includes(requestedId)
+    serialized.includes(
+      requestedId
+    )
   ) {
     score += 100;
   }
@@ -553,8 +942,9 @@ function addVideoCandidate(
   });
 }
 
+
 // ============================================================
-// Raw HTML fallback
+// RAW HTML VIDEO FALLBACK
 // ============================================================
 
 function extractRawVideoUrls(
@@ -567,22 +957,36 @@ function extractRawVideoUrls(
     "browser_native_sd_url",
   ];
 
-  for (const key of keys) {
-    const regex = new RegExp(
-      `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
-      "gi"
-    );
+  for (
+    const key of keys
+  ) {
+    const regex =
+      new RegExp(
+        `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
+        "gi"
+      );
 
     let match;
 
-    while ((match = regex.exec(html)) !== null) {
+    while (
+      (match =
+        regex.exec(
+          html
+        )) !== null
+    ) {
       const surroundingStart =
-        Math.max(0, match.index - 5000);
+        Math.max(
+          0,
+          match.index -
+            5000
+        );
 
       const surroundingEnd =
         Math.min(
           html.length,
-          match.index + match[0].length + 5000
+          match.index +
+            match[0].length +
+            5000
         );
 
       const surrounding =
@@ -595,13 +999,16 @@ function extractRawVideoUrls(
 
       if (
         requestedId &&
-        surrounding.includes(requestedId)
+        surrounding.includes(
+          requestedId
+        )
       ) {
         score += 100;
       }
 
       if (
-        key === "browser_native_hd_url"
+        key ===
+        "browser_native_hd_url"
       ) {
         score += 20;
       }
@@ -610,28 +1017,44 @@ function extractRawVideoUrls(
         url: match[1],
         score,
         isHd:
-          key === "browser_native_hd_url",
+          key ===
+          "browser_native_hd_url",
       });
     }
   }
 
-  // Another Facebook format:
-  // browser_native_hd_url:"https://..."
+  // ----------------------------------------------------------
+  // Loose format
+  // ----------------------------------------------------------
+
   const looseRegex =
     /browser_native_(hd|sd)_url["']?\s*[:=]\s*["']((?:\\.|[^"\\])*)["']/gi;
 
   let looseMatch;
 
   while (
-    (looseMatch = looseRegex.exec(html)) !== null
+    (looseMatch =
+      looseRegex.exec(
+        html
+      )) !== null
   ) {
-    const type = looseMatch[1];
-    const url = looseMatch[2];
+    const type =
+      looseMatch[1];
 
-    let score = type === "hd" ? 20 : 0;
+    const url =
+      looseMatch[2];
+
+    let score =
+      type === "hd"
+        ? 20
+        : 0;
 
     const surroundingStart =
-      Math.max(0, looseMatch.index - 5000);
+      Math.max(
+        0,
+        looseMatch.index -
+          5000
+      );
 
     const surroundingEnd =
       Math.min(
@@ -649,7 +1072,9 @@ function extractRawVideoUrls(
 
     if (
       requestedId &&
-      surrounding.includes(requestedId)
+      surrounding.includes(
+        requestedId
+      )
     ) {
       score += 100;
     }
@@ -657,16 +1082,20 @@ function extractRawVideoUrls(
     candidates.push({
       url,
       score,
-      isHd: type === "hd",
+      isHd:
+        type === "hd",
     });
   }
 }
 
+
 // ============================================================
-// Extract Facebook video ID
+// EXTRACT VIDEO ID
 // ============================================================
 
-function extractVideoId(url) {
+function extractVideoId(
+  url
+) {
   if (!url) return "";
 
   const patterns = [
@@ -676,10 +1105,15 @@ function extractVideoId(url) {
     /\/reels\/(\d+)/i,
   ];
 
-  for (const regex of patterns) {
-    const match = url.match(regex);
+  for (
+    const regex of patterns
+  ) {
+    const match =
+      url.match(regex);
 
-    if (match?.[1]) {
+    if (
+      match?.[1]
+    ) {
       return match[1];
     }
   }
@@ -687,11 +1121,14 @@ function extractVideoId(url) {
   return "";
 }
 
+
 // ============================================================
-// HTML page
+// HTML PAGE
 // ============================================================
 
-function htmlPage(data) {
+function htmlPage(
+  data
+) {
   const {
     sourceUrl,
     resolvedUrl,
@@ -703,20 +1140,28 @@ function htmlPage(data) {
   } = data;
 
   const safeTitle =
-    title || "Facebook Video";
+    title ||
+    "Facebook Video";
 
   const safeDescription =
     description ||
     "Facebook video converted by Facebed";
 
-  const hasVideo = Boolean(videoUrl);
+  const hasVideo =
+    Boolean(videoUrl);
 
   return `<!DOCTYPE html>
 <html lang="en">
+
 <head>
+
 <meta charset="UTF-8">
 
-<title>${escapeHtml(safeTitle)}</title>
+<title>
+${escapeHtml(
+  safeTitle
+)}
+</title>
 
 <meta
   name="viewport"
@@ -725,17 +1170,23 @@ function htmlPage(data) {
 
 <meta
   name="description"
-  content="${escapeHtml(safeDescription)}"
+  content="${escapeHtml(
+    safeDescription
+  )}"
 >
 
 <meta
   property="og:title"
-  content="${escapeHtml(safeTitle)}"
+  content="${escapeHtml(
+    safeTitle
+  )}"
 >
 
 <meta
   property="og:description"
-  content="${escapeHtml(safeDescription)}"
+  content="${escapeHtml(
+    safeDescription
+  )}"
 >
 
 <meta
@@ -745,14 +1196,18 @@ function htmlPage(data) {
 
 <meta
   property="og:url"
-  content="${escapeHtml(sourceUrl)}"
+  content="${escapeHtml(
+    sourceUrl
+  )}"
 >
 
 ${
   image
     ? `<meta
   property="og:image"
-  content="${escapeHtml(image)}"
+  content="${escapeHtml(
+    image
+  )}"
 >`
     : ""
 }
@@ -761,17 +1216,23 @@ ${
   videoUrl
     ? `<meta
   property="og:video"
-  content="${escapeHtml(videoUrl)}"
+  content="${escapeHtml(
+    videoUrl
+  )}"
 >
 
 <meta
   property="og:video:url"
-  content="${escapeHtml(videoUrl)}"
+  content="${escapeHtml(
+    videoUrl
+  )}"
 >
 
 <meta
   property="og:video:secure_url"
-  content="${escapeHtml(videoUrl)}"
+  content="${escapeHtml(
+    videoUrl
+  )}"
 >
 
 <meta
@@ -796,17 +1257,23 @@ ${
 
 <meta
   name="twitter:title"
-  content="${escapeHtml(safeTitle)}"
+  content="${escapeHtml(
+    safeTitle
+  )}"
 >
 
 <meta
   name="twitter:description"
-  content="${escapeHtml(safeDescription)}"
+  content="${escapeHtml(
+    safeDescription
+  )}"
 >
 
 <meta
   name="twitter:player:stream"
-  content="${escapeHtml(videoUrl)}"
+  content="${escapeHtml(
+    videoUrl
+  )}"
 >
 
 <meta
@@ -817,61 +1284,63 @@ ${
 }
 
 <style>
-  * {
-    box-sizing: border-box;
-  }
 
-  body {
-    margin: 0;
-    padding: 24px;
-    background: #111;
-    color: #eee;
-    font-family:
-      Arial,
-      Helvetica,
-      sans-serif;
-  }
+* {
+  box-sizing: border-box;
+}
 
-  .container {
-    max-width: 1000px;
-    margin: auto;
-  }
+body {
+  margin: 0;
+  padding: 24px;
+  background: #111;
+  color: #eee;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+}
 
-  h1 {
-    font-size: 22px;
-    margin-bottom: 20px;
-  }
+.container {
+  max-width: 1000px;
+  margin: auto;
+}
 
-  .video {
-    width: 100%;
-    max-width: 900px;
-    background: #000;
-    border-radius: 8px;
-  }
+h1 {
+  font-size: 22px;
+  margin-bottom: 20px;
+}
 
-  .info {
-    margin-top: 20px;
-    padding: 16px;
-    background: #1d1d1d;
-    border-radius: 8px;
-    word-break: break-word;
-  }
+.video {
+  width: 100%;
+  max-width: 900px;
+  background: #000;
+  border-radius: 8px;
+}
 
-  .ok {
-    color: #57e389;
-  }
+.info {
+  margin-top: 20px;
+  padding: 16px;
+  background: #1d1d1d;
+  border-radius: 8px;
+  word-break: break-word;
+}
 
-  .error {
-    color: #ff6b6b;
-  }
+.ok {
+  color: #57e389;
+}
 
-  a {
-    color: #65b7ff;
-  }
+.error {
+  color: #ff6b6b;
+}
 
-  code {
-    word-break: break-all;
-  }
+a {
+  color: #65b7ff;
+}
+
+code {
+  word-break: break-all;
+}
+
 </style>
 
 </head>
@@ -880,7 +1349,11 @@ ${
 
 <div class="container">
 
-<h1>${escapeHtml(safeTitle)}</h1>
+<h1>
+${escapeHtml(
+  safeTitle
+)}
+</h1>
 
 ${
   hasVideo
@@ -889,57 +1362,113 @@ ${
   controls
   preload="metadata"
   playsinline
-  poster="${escapeHtml(image || "")}"
+  poster="${escapeHtml(
+    image || ""
+  )}"
 >
   <source
-    src="${escapeHtml(videoUrl)}"
+    src="${escapeHtml(
+      videoUrl
+    )}"
     type="video/mp4"
   >
   Your browser does not support HTML5 video.
 </video>`
     : `<div class="info">
+
   <div class="error">
     Video URL: NOT FOUND
   </div>
+
 </div>`
 }
 
 <div class="info">
 
 <p>
-  <strong>Status:</strong>
-  <span class="${hasVideo ? "ok" : "error"}">
-    ${hasVideo ? "VIDEO FOUND" : "VIDEO NOT FOUND"}
-  </span>
+
+<strong>
+Status:
+</strong>
+
+<span
+  class="${
+    hasVideo
+      ? "ok"
+      : "error"
+  }"
+>
+
+${
+  hasVideo
+    ? "VIDEO FOUND"
+    : "VIDEO NOT FOUND"
+}
+
+</span>
+
 </p>
 
 <p>
-  <strong>Resolve:</strong>
-  ${escapeHtml(reason || "-")}
+
+<strong>
+Resolve:
+</strong>
+
+${escapeHtml(
+  reason || "-"
+)}
+
 </p>
 
 <p>
-  <strong>Source:</strong><br>
-  <a
-    href="${escapeHtml(sourceUrl)}"
-    target="_blank"
-    rel="noopener"
-  >
-    ${escapeHtml(sourceUrl)}
-  </a>
+
+<strong>
+Source:
+</strong>
+
+<br>
+
+<a
+  href="${escapeHtml(
+    sourceUrl
+  )}"
+  target="_blank"
+  rel="noopener"
+>
+
+${escapeHtml(
+  sourceUrl
+)}
+
+</a>
+
 </p>
 
 ${
   resolvedUrl
     ? `<p>
-  <strong>Resolved:</strong><br>
-  <a
-    href="${escapeHtml(resolvedUrl)}"
-    target="_blank"
-    rel="noopener"
-  >
-    ${escapeHtml(resolvedUrl)}
-  </a>
+
+<strong>
+Resolved:
+</strong>
+
+<br>
+
+<a
+  href="${escapeHtml(
+    resolvedUrl
+  )}"
+  target="_blank"
+  rel="noopener"
+>
+
+${escapeHtml(
+  resolvedUrl
+)}
+
+</a>
+
 </p>`
     : ""
 }
@@ -947,8 +1476,19 @@ ${
 ${
   videoUrl
     ? `<p>
-  <strong>Video URL:</strong><br>
-  <code>${escapeHtml(videoUrl)}</code>
+
+<strong>
+Video URL:
+</strong>
+
+<br>
+
+<code>
+${escapeHtml(
+  videoUrl
+)}
+</code>
+
 </p>`
     : ""
 }
@@ -958,14 +1498,19 @@ ${
 </div>
 
 </body>
+
 </html>`;
 }
 
+
 // ============================================================
-// Error response
+// JSON ERROR
 // ============================================================
 
-function errorResponse(message, status = 400) {
+function errorResponse(
+  message,
+  status = 400
+) {
   return new Response(
     JSON.stringify({
       success: false,
@@ -974,141 +1519,421 @@ function errorResponse(message, status = 400) {
     {
       status,
       headers: {
-        "Content-Type": "application/json; charset=UTF-8",
-        "Cache-Control": "no-store",
+        "Content-Type":
+          "application/json; charset=UTF-8",
+
+        "Cache-Control":
+          "no-store",
       },
     }
   );
 }
 
+
 // ============================================================
-// Main Worker
+// WORKER
 // ============================================================
 
 export default {
-  async fetch(request) {
-    const requestUrl = new URL(request.url);
 
-    // --------------------------------------------------------
-    // Home
-    // --------------------------------------------------------
+  async fetch(
+    request
+  ) {
+
+    const requestUrl =
+      new URL(
+        request.url
+      );
+
+
+    // ========================================================
+    // HOME
+    // ========================================================
 
     if (
       requestUrl.pathname === "/" &&
-      !requestUrl.searchParams.has("url")
+      !requestUrl.searchParams.has(
+        "url"
+      )
     ) {
-      const html = `<!DOCTYPE html>
+
+      const html =
+`<!DOCTYPE html>
+
 <html>
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>C2Z Facebed</title>
+
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1"
+>
+
+<title>
+C2Z Facebed
+</title>
+
 <style>
+
 body {
   font-family: Arial, sans-serif;
   background: #111;
   color: #eee;
   padding: 40px;
 }
+
 .container {
   max-width: 800px;
   margin: auto;
 }
+
 code {
   background: #222;
   padding: 4px 8px;
   border-radius: 5px;
 }
+
 </style>
+
 </head>
 
 <body>
 
 <div class="container">
 
-<h1>C2Z Facebed</h1>
+<h1>
+C2Z Facebed
+</h1>
 
 <p>
 Facebook → Discord video resolver
 </p>
 
-<h3>Usage</h3>
+<h3>
+Supported URL styles
+</h3>
 
 <p>
-<code>/?url=FACEBOOK_URL</code>
+<code>
+/share/r/xxxxx
+</code>
 </p>
 
 <p>
-<code>/video?url=FACEBOOK_URL</code>
+<code>
+/share/p/xxxxx
+</code>
+</p>
+
+<p>
+<code>
+/username/posts/xxxxx
+</code>
+</p>
+
+<p>
+<code>
+/groups/xxxxx/posts/xxxxx
+</code>
+</p>
+
+<p>
+<code>
+/reel/xxxxx
+</code>
+</p>
+
+<p>
+<code>
+/watch?v=xxxxx
+</code>
+</p>
+
+<p>
+<code>
+/story.php?story_fbid=xxxxx
+</code>
+</p>
+
+<p>
+<code>
+/permalink.php?story_fbid=xxxxx
+</code>
+</p>
+
+<h3>
+Full Facebook URL
+</h3>
+
+<p>
+<code>
+/https://www.facebook.com/share/r/xxxxx/
+</code>
+</p>
+
+<h3>
+Discord Video
+</h3>
+
+<p>
+<code>
+/video?url=FACEBOOK_URL
+</code>
 </p>
 
 </div>
 
 </body>
+
 </html>`;
 
-      return new Response(html, {
-        headers: {
-          "Content-Type": "text/html; charset=UTF-8",
-          "Cache-Control": "no-store",
-        },
-      });
+      return new Response(
+        html,
+        {
+          headers: {
+            "Content-Type":
+              "text/html; charset=UTF-8",
+
+            "Cache-Control":
+              "no-store",
+          },
+        }
+      );
     }
 
-    // --------------------------------------------------------
-    // URL parameter
-    // --------------------------------------------------------
+
+    // ========================================================
+    // FULL FACEBOOK URL IN PATH
+    //
+    // /https://www.facebook.com/share/r/xxxxx/
+    // ========================================================
+
+    const embeddedFacebookUrl =
+      extractFacebookUrlFromPath(
+        requestUrl
+      );
+
+    if (
+      embeddedFacebookUrl
+    ) {
+
+      console.log(
+        "Embedded Facebook URL:",
+        embeddedFacebookUrl
+      );
+
+      try {
+
+        const resolved =
+          await resolveFacebookShare(
+            embeddedFacebookUrl
+          );
+
+        if (
+          resolved.success &&
+          resolved.resolvedUrl
+        ) {
+
+          console.log(
+            "Redirecting to:",
+            resolved.resolvedUrl
+          );
+
+          return Response.redirect(
+            resolved.resolvedUrl,
+            302
+          );
+        }
+
+        // Fallback
+        return Response.redirect(
+          embeddedFacebookUrl,
+          302
+        );
+
+      } catch (
+        error
+      ) {
+
+        console.log(
+          "Embedded URL error:",
+          error?.message ||
+            error
+        );
+
+        return Response.redirect(
+          embeddedFacebookUrl,
+          302
+        );
+      }
+    }
+
+
+    // ========================================================
+    // FACEBED STYLE ROUTES
+    //
+    // /share/r/xxxxx
+    // /share/p/xxxxx
+    // /username/posts/xxxxx
+    // /groups/id/posts/id
+    // /reel/id
+    // /watch?v=id
+    // etc.
+    // ========================================================
+
+    if (
+      isSupportedFacebookPath(
+        requestUrl.pathname,
+        requestUrl.search
+      )
+    ) {
+
+      const facebookUrl =
+        "https://www.facebook.com" +
+        requestUrl.pathname +
+        requestUrl.search;
+
+      console.log(
+        "Facebed route:",
+        facebookUrl
+      );
+
+      try {
+
+        const resolved =
+          await resolveFacebookShare(
+            facebookUrl
+          );
+
+        if (
+          resolved.success &&
+          resolved.resolvedUrl
+        ) {
+
+          console.log(
+            "Redirecting to:",
+            resolved.resolvedUrl
+          );
+
+          return Response.redirect(
+            resolved.resolvedUrl,
+            302
+          );
+        }
+
+        // Resolve ไม่ได้
+        // ส่งไป Facebook URL เดิม
+        return Response.redirect(
+          facebookUrl,
+          302
+        );
+
+      } catch (
+        error
+      ) {
+
+        console.log(
+          "Facebed route error:",
+          error?.message ||
+            error
+        );
+
+        return Response.redirect(
+          facebookUrl,
+          302
+        );
+      }
+    }
+
+
+    // ========================================================
+    // ?url= FACEBOOK URL
+    // ========================================================
 
     const sourceUrl =
-      requestUrl.searchParams.get("url");
+      requestUrl.searchParams.get(
+        "url"
+      );
 
     if (!sourceUrl) {
+
       return errorResponse(
         "Missing ?url= parameter"
       );
     }
 
+
     let facebookUrl;
 
     try {
+
       facebookUrl =
-        decodeURIComponent(sourceUrl);
+        decodeURIComponent(
+          sourceUrl
+        );
+
     } catch {
-      facebookUrl = sourceUrl;
+
+      facebookUrl =
+        sourceUrl;
     }
 
-    if (!isFacebookUrl(facebookUrl)) {
+
+    if (
+      !isFacebookUrl(
+        facebookUrl
+      )
+    ) {
+
       return errorResponse(
         "Only Facebook URLs are supported",
         400
       );
     }
 
+
     // ========================================================
     // /video
     //
-    // Resolve Facebook → MP4 → HTTP 302
+    // Facebook → MP4 → 302
+    //
+    // ใช้สำหรับ Discord
     // ========================================================
 
-    if (requestUrl.pathname === "/video") {
+    if (
+      requestUrl.pathname ===
+      "/video"
+    ) {
+
       console.log(
         "Video request:",
         facebookUrl
       );
 
       try {
+
         const resolved =
           await resolveFacebookShare(
             facebookUrl
           );
 
-        if (!resolved.success) {
+        if (
+          !resolved.success
+        ) {
+
           return errorResponse(
             resolved.reason ||
               "Could not resolve Facebook URL",
             404
           );
         }
+
+
+        // ----------------------------------------------------
+        // Try share page
+        // ----------------------------------------------------
 
         let videoUrl =
           extractFacebookVideoUrl(
@@ -1118,12 +1943,16 @@ Facebook → Discord video resolver
             )
           );
 
+
         // ----------------------------------------------------
-        // If share page didn't contain video,
-        // fetch resolved page.
+        // Try resolved page
         // ----------------------------------------------------
 
-        if (!videoUrl && resolved.resolvedUrl) {
+        if (
+          !videoUrl &&
+          resolved.resolvedUrl
+        ) {
+
           console.log(
             "Fetching resolved page:",
             resolved.resolvedUrl
@@ -1133,9 +1962,14 @@ Facebook → Discord video resolver
             await fetch(
               resolved.resolvedUrl,
               {
-                method: "GET",
-                redirect: "follow",
-                headers: FACEBOOK_HEADERS,
+                method:
+                  "GET",
+
+                redirect:
+                  "follow",
+
+                headers:
+                  FACEBOOK_HEADERS,
               }
             );
 
@@ -1151,34 +1985,52 @@ Facebook → Discord video resolver
             );
         }
 
+
         if (!videoUrl) {
+
           return errorResponse(
             "Video URL not found",
             404
           );
         }
 
-        console.log(
-          "Redirecting to video:"
-        );
 
         console.log(
-          videoUrl.substring(0, 150)
+          "Redirecting to video"
         );
 
+
+        console.log(
+          videoUrl.substring(
+            0,
+            150
+          )
+        );
+
+
         // ----------------------------------------------------
-        // Don't cache because Facebook CDN URLs can expire.
+        // 302 → Facebook CDN
         // ----------------------------------------------------
 
-        return new Response(null, {
-          status: 302,
-          headers: {
-            Location: videoUrl,
-            "Cache-Control":
-              "no-store, max-age=0",
-          },
-        });
-      } catch (error) {
+        return new Response(
+          null,
+          {
+            status: 302,
+
+            headers: {
+              Location:
+                videoUrl,
+
+              "Cache-Control":
+                "no-store, max-age=0",
+            },
+          }
+        );
+
+      } catch (
+        error
+      ) {
+
         console.log(
           "Video endpoint error:",
           error?.stack ||
@@ -1193,54 +2045,78 @@ Facebook → Discord video resolver
       }
     }
 
+
     // ========================================================
     // /embed
     //
-    // HTML page with OG video metadata
+    // HTML page with OG metadata
     // ========================================================
 
-    if (requestUrl.pathname === "/embed") {
-      // Continue below.
+    if (
+      requestUrl.pathname ===
+      "/embed"
+    ) {
+      // Continue to normal resolver
     }
 
+
     // ========================================================
-    // Normal HTML resolver
+    // NORMAL RESOLVER
+    //
+    // /?url=FACEBOOK_URL
     // ========================================================
 
     try {
+
       console.log(
         "Resolving:",
         facebookUrl
       );
+
 
       const resolved =
         await resolveFacebookShare(
           facebookUrl
         );
 
-      if (!resolved.success) {
+
+      if (
+        !resolved.success
+      ) {
+
         return new Response(
           htmlPage({
-            sourceUrl: facebookUrl,
+            sourceUrl:
+              facebookUrl,
+
             resolvedUrl:
               resolved.resolvedUrl,
+
             videoUrl: "",
+
             title:
               resolved.title ||
               "Facebook",
+
             description:
               resolved.description ||
               resolved.reason,
+
             image:
-              resolved.image || "",
+              resolved.image ||
+              "",
+
             reason:
               resolved.reason,
           }),
+
           {
             status: 404,
+
             headers: {
               "Content-Type":
                 "text/html; charset=UTF-8",
+
               "Cache-Control":
                 "no-store",
             },
@@ -1248,8 +2124,9 @@ Facebook → Discord video resolver
         );
       }
 
+
       // ------------------------------------------------------
-      // First try video from share page
+      // Try share page
       // ------------------------------------------------------
 
       let videoUrl =
@@ -1260,35 +2137,45 @@ Facebook → Discord video resolver
           )
         );
 
+
       // ------------------------------------------------------
-      // If not found, fetch resolved page
+      // Try resolved page
       // ------------------------------------------------------
 
-      if (!videoUrl && resolved.resolvedUrl) {
+      if (
+        !videoUrl &&
+        resolved.resolvedUrl
+      ) {
+
         console.log(
           "Video not found on share page."
         );
 
         console.log(
-          "Fetching resolved page:"
-        );
-
-        console.log(
+          "Fetching resolved page:",
           resolved.resolvedUrl
         );
+
 
         const videoResponse =
           await fetch(
             resolved.resolvedUrl,
             {
-              method: "GET",
-              redirect: "follow",
-              headers: FACEBOOK_HEADERS,
+              method:
+                "GET",
+
+              redirect:
+                "follow",
+
+              headers:
+                FACEBOOK_HEADERS,
             }
           );
 
+
         const videoHtml =
           await videoResponse.text();
+
 
         videoUrl =
           extractFacebookVideoUrl(
@@ -1299,6 +2186,7 @@ Facebook → Discord video resolver
           );
       }
 
+
       console.log(
         "Video URL:",
         videoUrl
@@ -1306,37 +2194,50 @@ Facebook → Discord video resolver
           : "NOT FOUND"
       );
 
+
       return new Response(
         htmlPage({
-          sourceUrl: facebookUrl,
+          sourceUrl:
+            facebookUrl,
+
           resolvedUrl:
             resolved.resolvedUrl,
+
           videoUrl,
+
           title:
             resolved.title ||
             "Facebook Video",
+
           description:
             resolved.description ||
             "Facebook video",
+
           image:
-            resolved.image || "",
+            resolved.image ||
+            "",
+
           reason:
             resolved.reason,
         }),
+
         {
           status: 200,
+
           headers: {
             "Content-Type":
               "text/html; charset=UTF-8",
 
-            // Don't let Discord/browser cache
-            // an expired Facebook CDN URL.
             "Cache-Control":
               "no-store, max-age=0",
           },
         }
       );
-    } catch (error) {
+
+    } catch (
+      error
+    ) {
+
       console.log(
         "Worker error:",
         error?.stack ||
