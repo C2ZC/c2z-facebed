@@ -489,6 +489,14 @@ export default {
   async fetch(request) {
     const requestUrl = new URL(request.url);
 
+    // เช็กว่าเป็น Discordbot หรือ Social Crawlers หรือไม่
+    const ua = (request.headers.get("user-agent") || "").toLowerCase();
+    const isDiscordOrBot =
+      ua.includes("discordbot") ||
+      ua.includes("telegrambot") ||
+      ua.includes("twitterbot") ||
+      ua.includes("facebookexternalhit");
+
     // 1. HOME
     if (requestUrl.pathname === "/" && !requestUrl.searchParams.has("url")) {
       return new Response("C2Z Facebed Ready", { status: 200 });
@@ -497,6 +505,11 @@ export default {
     // 2. EMBEDDED URL IN PATH: https://fb.c2z.top/https://www.facebook.com/...
     const embeddedFacebookUrl = extractFacebookUrlFromPath(requestUrl);
     if (embeddedFacebookUrl) {
+      // ถ้าไม่ใช่ Bot (คนกดเปิดลิงก์ในเบราว์เซอร์) ให้เด้งไป Facebook ทันที
+      if (!isDiscordOrBot) {
+        return Response.redirect(embeddedFacebookUrl, 302);
+      }
+
       try {
         const resolved = await resolveFacebookShare(embeddedFacebookUrl);
         let videoUrl = extractFacebookVideoUrl(resolved.html, extractVideoId(resolved.resolvedUrl));
@@ -540,6 +553,11 @@ export default {
     // 3. SUPPORTED FACEBOOK ROUTES: /share/v/xxx, /user/posts/xxx
     if (isSupportedFacebookPath(requestUrl.pathname, requestUrl.search)) {
       const facebookUrl = "https://www.facebook.com" + requestUrl.pathname + requestUrl.search;
+
+      // ถ้าไม่ใช่ Bot ให้เด้งไป Facebook ทันที
+      if (!isDiscordOrBot) {
+        return Response.redirect(facebookUrl, 302);
+      }
 
       try {
         const resolved = await resolveFacebookShare(facebookUrl);
