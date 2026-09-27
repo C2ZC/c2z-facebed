@@ -659,6 +659,7 @@ function htmlPage(data) {
 <head>
 <meta charset="UTF-8">
 <title>${escapeHtml(safeTitle)}</title>
+<meta name="theme-color" content="#1877F2">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <!-- Standard HTML metadata -->
@@ -812,7 +813,7 @@ export default {
   <meta name="description" content="สร้างตัวฝังคลิปบน Discord">
   <meta name="author" content="C2Z">
   <link rel="icon" type="image/png" href="https://c2z.top/assets/images/avatar.png">
-  <meta name="theme-color" content="#624c3d">
+  <meta name="theme-color" content="#1877F2">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="C2Z">
   <meta property="og:title" content="Facebook Fix Embed by C2Z">
