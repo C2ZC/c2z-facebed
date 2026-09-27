@@ -1460,6 +1460,277 @@ async function resolveFacebookShare(
 }
 
 // ============================================================
+// VIDEO HELPERS
+// ============================================================
+
+function walkVideoNodes(
+  node,
+  requestedId,
+  candidates,
+  depth = 0
+) {
+  if (
+    !node ||
+    depth > 30 ||
+    typeof node === "string"
+  ) {
+    return;
+  }
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      walkVideoNodes(
+        item,
+        requestedId,
+        candidates,
+        depth + 1
+      );
+    }
+
+    return;
+  }
+
+  if (typeof node !== "object") {
+    return;
+  }
+
+  const hd =
+    node.browser_native_hd_url ||
+    node.browserNativeHdUrl ||
+    "";
+
+  const sd =
+    node.browser_native_sd_url ||
+    node.browserNativeSdUrl ||
+    "";
+
+  if (hd) {
+    addVideoCandidate(
+      hd,
+      node,
+      requestedId,
+      candidates,
+      true
+    );
+  }
+
+  if (sd) {
+    addVideoCandidate(
+      sd,
+      node,
+      requestedId,
+      candidates,
+      false
+    );
+  }
+
+  const legacy =
+    node.videoDeliveryLegacyFields;
+
+  if (
+    legacy &&
+    typeof legacy === "object"
+  ) {
+    const legacyHd =
+      legacy.browser_native_hd_url ||
+      legacy.browserNativeHdUrl ||
+      "";
+
+    const legacySd =
+      legacy.browser_native_sd_url ||
+      legacy.browserNativeSdUrl ||
+      "";
+
+    if (legacyHd) {
+      addVideoCandidate(
+        legacyHd,
+        node,
+        requestedId,
+        candidates,
+        true
+      );
+    }
+
+    if (legacySd) {
+      addVideoCandidate(
+        legacySd,
+        node,
+        requestedId,
+        candidates,
+        false
+      );
+    }
+  }
+
+  for (const [
+    key,
+    value,
+  ] of Object.entries(node)) {
+
+    if (
+      key === "browser_native_hd_url" ||
+      key === "browser_native_sd_url" ||
+      key === "browserNativeHdUrl" ||
+      key === "browserNativeSdUrl" ||
+      key === "videoDeliveryLegacyFields"
+    ) {
+      continue;
+    }
+
+    walkVideoNodes(
+      value,
+      requestedId,
+      candidates,
+      depth + 1
+    );
+  }
+}
+
+
+function addVideoCandidate(
+  url,
+  node,
+  requestedId,
+  candidates,
+  isHd
+) {
+  if (
+    !url ||
+    typeof url !== "string"
+  ) {
+    return;
+  }
+
+  let score = 0;
+  let serialized = "";
+
+  try {
+    serialized =
+      JSON.stringify(node);
+  } catch {
+    serialized = "";
+  }
+
+  if (
+    requestedId &&
+    serialized &&
+    serialized.includes(
+      requestedId
+    )
+  ) {
+    score += 100;
+  }
+
+  if (isHd) {
+    score += 20;
+  }
+
+  candidates.push({
+    url,
+    score,
+    isHd,
+  });
+}
+
+
+function extractRawVideoUrls(
+  html,
+  requestedId,
+  candidates
+) {
+  const keys = [
+    "browser_native_hd_url",
+    "browser_native_sd_url",
+  ];
+
+  for (const key of keys) {
+
+    const regex =
+      new RegExp(
+        `"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`,
+        "gi"
+      );
+
+    let match;
+
+    while (
+      (match =
+        regex.exec(html)) !== null
+    ) {
+
+      const surroundingStart =
+        Math.max(
+          0,
+          match.index - 5000
+        );
+
+      const surroundingEnd =
+        Math.min(
+          html.length,
+          match.index +
+            match[0].length +
+            5000
+        );
+
+      const surrounding =
+        html.slice(
+          surroundingStart,
+          surroundingEnd
+        );
+
+      let score = 0;
+
+      if (
+        requestedId &&
+        surrounding.includes(
+          requestedId
+        )
+      ) {
+        score += 100;
+      }
+
+      if (
+        key ===
+        "browser_native_hd_url"
+      ) {
+        score += 20;
+      }
+
+      candidates.push({
+        url: match[1],
+        score,
+        isHd:
+          key ===
+          "browser_native_hd_url",
+      });
+    }
+  }
+}
+
+
+function extractVideoId(url) {
+  if (!url) return "";
+
+  const patterns = [
+    /\/videos\/(\d+)/i,
+    /\/video\/(\d+)/i,
+    /\/reel\/(\d+)/i,
+    /\/reels\/(\d+)/i,
+  ];
+
+  for (const regex of patterns) {
+    const match =
+      url.match(regex);
+
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  return "";
+}
+
+// ============================================================
 // EXTRACT VIDEO URL
 // ============================================================
 
@@ -1557,9 +1828,9 @@ const genericKeys = [
 for (const key of genericKeys) {
 
   const regex = new RegExp(
-    `["']${key}["']\\s*:\\s*["']((?:\\\\.|[^"\\\\])+)["']`,
-    "gi"
-  );
+  `["']${key}["']\\s*:\\s*["']((?:\\\\.|[^"\\\\])+)["']`,
+  "gi"
+);
 
   let match;
 
