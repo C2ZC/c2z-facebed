@@ -308,7 +308,10 @@ function extractFacebookStats(html) {
         if (key === "creationTime") {
           let timestamp = Number(match[1]);
 
-          if (!Number.isFinite(timestamp) || timestamp <= 0) {
+          if (
+            !Number.isFinite(timestamp) ||
+            timestamp <= 0
+          ) {
             continue;
           }
 
@@ -324,7 +327,8 @@ function extractFacebookStats(html) {
             const date = new Date(timestamp * 1000);
 
             if (!Number.isNaN(date.getTime())) {
-              stats.creationTime = date.toISOString();
+              stats.creationTime =
+                date.toISOString();
             }
           } catch {
             // ถ้า timestamp ผิดรูปแบบ ให้ข้ามไป
@@ -389,69 +393,116 @@ function renderTestPage({
       : {};
 
   const safeInputUrl =
-    inputUrl == null ? "" : String(inputUrl);
+    inputUrl == null
+      ? ""
+      : String(inputUrl);
 
   const safeResolvedUrl =
-    resolvedUrl == null ? "" : String(resolvedUrl);
+    resolvedUrl == null
+      ? ""
+      : String(resolvedUrl);
 
   const safeTitle =
-    title == null ? "" : String(title);
+    title == null
+      ? ""
+      : String(title);
 
   const safeAuthorName =
-    authorName == null ? "" : String(authorName);
+    authorName == null
+      ? ""
+      : String(authorName);
 
   const safeDescription =
-    description == null ? "" : String(description);
+    description == null
+      ? ""
+      : String(description);
 
   const safeImage =
-    image == null ? "" : String(image);
+    image == null
+      ? ""
+      : String(image);
 
   const safeError =
-    error == null ? "" : String(error);
+    error == null
+      ? ""
+      : String(error);
+
+  /*
+   * ============================
+   * Test Page Metadata
+   * ============================
+   *
+   * ถ้ามีชื่อคนโพสต์ ให้ใช้ชื่อคนโพสต์
+   * เป็น title หลักของหน้า Test
+   */
+  const pageTitle =
+    safeAuthorName ||
+    safeTitle ||
+    "C2Z Facebed Test";
+
+  /*
+   * ถ้ามี description จาก Facebook
+   * ให้ใช้เป็น description
+   */
+  const pageDescription =
+    safeDescription ||
+    (
+      safeAuthorName
+        ? `โพสต์ Facebook โดย ${safeAuthorName}`
+        : "ทดสอบการดึงข้อมูลจาก Facebook ด้วย C2Z Facebed"
+    );
 
   const statRows = [
     [
       "ชื่อคนโพสต์",
       safeAuthorName || "ไม่พบข้อมูล",
     ],
+
     [
       "ชื่อโพสต์ / วิดีโอ",
       safeTitle || "ไม่พบข้อมูล",
     ],
+
     [
       "ถูกใจ / ปฏิกิริยา",
       formatTestNumber(
         safeStats.reactions
       ),
     ],
+
     [
       "ความคิดเห็น",
       formatTestNumber(
         safeStats.comments
       ),
     ],
+
     [
       "แชร์",
       formatTestNumber(
         safeStats.shares
       ),
     ],
+
     [
       "ยอดดู",
       formatTestNumber(
         safeStats.views
       ),
     ],
+
     [
       "เวลาสร้างโพสต์",
       safeStats.creationTime
         ? String(safeStats.creationTime)
         : "ไม่พบข้อมูล",
     ],
+
     [
       "URL ที่ส่ง",
       safeInputUrl || "—",
     ],
+
     [
       "URL ที่ Resolve ได้",
       safeResolvedUrl || "ไม่พบข้อมูล",
@@ -459,16 +510,53 @@ function renderTestPage({
   ];
 
   return `<!DOCTYPE html>
+
 <html lang="th">
+
 <head>
+
 <meta charset="UTF-8">
+
 <meta
   name="viewport"
   content="width=device-width, initial-scale=1"
 >
-<title>C2Z Facebed Test</title>
+
+<title>${escapeHtml(pageTitle)}</title>
+
+<meta
+  name="description"
+  content="${escapeHtml(pageDescription)}"
+>
+
+<meta
+  property="og:title"
+  content="${escapeHtml(pageTitle)}"
+>
+
+<meta
+  property="og:description"
+  content="${escapeHtml(pageDescription)}"
+>
+
+<meta
+  property="og:type"
+  content="website"
+>
+
+${
+  safeImage
+    ? `
+<meta
+  property="og:image"
+  content="${escapeHtml(safeImage)}"
+>
+`
+    : ""
+}
 
 <style>
+
 :root {
   color-scheme: dark;
 }
@@ -589,6 +677,7 @@ button {
 }
 
 @media (max-width: 700px) {
+
   form,
   .preview {
     display: block;
@@ -606,11 +695,15 @@ button {
   .stats td:first-child {
     width: 130px;
   }
+
 }
+
 </style>
+
 </head>
 
 <body>
+
 <div class="wrap">
 
 <div class="card">
@@ -676,21 +769,26 @@ ${
 <div>
 
 <h2 style="margin-top:0">
+
 ${escapeHtml(
   safeAuthorName ||
   safeTitle ||
   "Facebook Video"
 )}
+
 </h2>
 
 ${
   safeAuthorName
     ? `
 <div class="muted">
+
 โพสต์โดย:
+
 <strong>
 ${escapeHtml(safeAuthorName)}
 </strong>
+
 </div>
 `
     : ""
@@ -726,12 +824,15 @@ ${statRows
   .map(
     ([label, value]) => `
 <tr>
+
 <td>
 ${escapeHtml(String(label))}
 </td>
+
 <td>
 ${escapeHtml(String(value))}
 </td>
+
 </tr>
 `
   )
@@ -750,6 +851,7 @@ ${escapeHtml(String(value))}
 </div>
 
 </body>
+
 </html>`;
 }
 
