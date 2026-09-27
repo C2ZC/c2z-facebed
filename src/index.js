@@ -226,7 +226,7 @@ function extractFacebookOwnerName(html) {
     if (
       name &&
       name.length < 200 &&
-      name !== "Facebook Video"
+      name !== "Facebook Content"
     ) {
       return name;
     }
@@ -902,7 +902,7 @@ ${
 ${escapeHtml(
   safeAuthorName ||
   safeTitle ||
-  "Facebook Video"
+  "Facebook Content"
 )}
 
 </h2>
@@ -1761,11 +1761,11 @@ function htmlPage(data) {
   const safeTitle =
     authorName ||
     title ||
-    "Facebook Video";
+    "Facebook Content";
 
   const safeDescription =
     description ||
-    "Facebook video converted by Facebed";
+    "Facebook content converted by C2Z";
 
   const imageList = Array.from(
     new Set(
