@@ -835,22 +835,24 @@ export default {
     .subtitle { text-align: center; color: #aaa; margin-bottom: 28px; }
     label { display: block; margin-bottom: 8px; font-weight: 600; }
     .input-row { display: flex; gap: 10px; }
-    input { flex: 1; min-width: 0; padding: 14px 16px; border: 1px solid #444; border-radius: 10px; background: #111; color: #fff; font-size: 15px; outline: none; }
+    input { flex: 1; min-width: 0; padding: 14px 16px; border: 1px solid #444; border-radius: 10px; background: #111; color: #fff; font-size: 15px; outline: none; transition: border-color 0.2s; }
     input:focus { border-color: #667eea; }
-    button { border: 0; border-radius: 10px; padding: 14px 20px; background: #667eea; color: white; font-size: 15px; font-weight: 600; cursor: pointer; }
+    button { border: 0; border-radius: 10px; padding: 14px 20px; background: #667eea; color: white; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.25s ease; }
     button:hover { background: #7289da; }
-    .result { display: none; margin-top: 24px; }
+    button.copied { background: #22c55e !important; transform: scale(1.05); }
+    .result { display: none; margin-top: 24px; animation: fadeIn 0.3s ease; }
     .result-title { margin-bottom: 8px; font-weight: 600; }
-    .result-row { display: flex; gap: 10px; }
-    .result input { background: #0d0d0d; }
-    .copy { white-space: nowrap; }
+    .result input { width: 100%; background: #0d0d0d; border-color: #333; }
     .error { display: none; margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: rgba(255, 70, 70, 0.12); color: #ff8585; }
     .hint { margin-top: 22px; color: #888; font-size: 13px; line-height: 1.6; text-align: center; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     @media (max-width: 600px) {
       .container { padding: 24px; }
       .input-row { flex-direction: column; }
       button { width: 100%; }
-      .result-row { flex-direction: column; }
     }
   </style>
 </head>
@@ -868,10 +870,7 @@ export default {
     <div id="error" class="error"></div>
     <div id="result" class="result">
       <div class="result-title">Fix Embed Link</div>
-      <div class="result-row">
-        <input id="resultUrl" type="text" readonly>
-        <button id="copyButton" class="copy" type="button">คัดลอก</button>
-      </div>
+      <input id="resultUrl" type="text" readonly>
     </div>
     <div class="hint">วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>ระบบจะเปลี่ยนเป็นลิงก์ C2Z และคัดลอกให้อัตโนมัติ</div>
   </div>
@@ -882,8 +881,9 @@ export default {
     const result = document.getElementById("result");
     const resultUrl = document.getElementById("resultUrl");
     const error = document.getElementById("error");
-    const copyButton = document.getElementById("copyButton");
     const submitBtn = document.getElementById("submitBtn");
+
+    let hideResultTimer = null;
 
     function isFacebookUrl(value) {
       try {
@@ -910,6 +910,10 @@ export default {
       error.style.display = "none";
       result.style.display = "none";
 
+      if (hideResultTimer) {
+        clearTimeout(hideResultTimer);
+      }
+
       if (!isFacebookUrl(value)) {
         error.textContent = "กรุณาใส่ลิงก์ Facebook ที่ถูกต้อง";
         error.style.display = "block";
@@ -929,27 +933,31 @@ export default {
         resultUrl.value = c2zUrl;
         result.style.display = "block";
 
-        // คัดลอกลิงก์ให้อัตโนมัติทันที
+        // คัดลอกลิงก์ให้อัตโนมัติ
         await copyToClipboard(c2zUrl);
 
-        // ลบลิงก์เดิมออกจากช่องพิมพ์
+        // ล้างช่องพิมพ์ลิงก์เดิม
         input.value = "";
 
-        // เปลี่ยนข้อความบนปุ่มชั่วคราวเพื่อแจ้งผู้ใช้
+        // ซ่อนกล่อง Fix Embed Link หลังผ่านไป 5 วินาที
+        hideResultTimer = setTimeout(() => {
+          result.style.display = "none";
+        }, 5000);
+
+        // เอฟเฟกต์ปุ่มสร้างลิงก์ (เปลี่ยนสีเขียว + เด้ง + ข้อความชัดเจน)
         const originalText = submitBtn.textContent;
-        submitBtn.textContent = "สร้างและคัดลอกเรียบร้อย!";
-        setTimeout(() => { submitBtn.textContent = originalText; }, 2000);
+        submitBtn.textContent = "✓ คัดลอกลิงก์แล้ว!";
+        submitBtn.classList.add("copied");
+
+        setTimeout(() => {
+          submitBtn.textContent = originalText;
+          submitBtn.classList.remove("copied");
+        }, 2000);
 
       } catch {
         error.textContent = "ไม่สามารถสร้างลิงก์ได้";
         error.style.display = "block";
       }
-    });
-
-    copyButton.addEventListener("click", async function() {
-      await copyToClipboard(resultUrl.value);
-      copyButton.textContent = "คัดลอกแล้ว";
-      setTimeout(function() { copyButton.textContent = "คัดลอก"; }, 1500);
     });
   </script>
 </body>
