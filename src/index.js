@@ -862,7 +862,7 @@ export default {
       <label for="facebookUrl">Facebook URL</label>
       <div class="input-row">
         <input id="facebookUrl" type="url" placeholder="https://www.facebook.com/reel/..." autocomplete="off" required>
-        <button type="submit">สร้างลิงก์</button>
+        <button id="submitBtn" type="submit">สร้างลิงก์</button>
       </div>
     </form>
     <div id="error" class="error"></div>
@@ -873,7 +873,7 @@ export default {
         <button id="copyButton" class="copy" type="button">คัดลอก</button>
       </div>
     </div>
-    <div class="hint">วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>ระบบจะเปลี่ยนเป็นลิงก์ C2Z ให้อัตโนมัติ</div>
+    <div class="hint">วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>ระบบจะเปลี่ยนเป็นลิงก์ C2Z และคัดลอกให้อัตโนมัติ</div>
   </div>
 
   <script>
@@ -883,6 +883,7 @@ export default {
     const resultUrl = document.getElementById("resultUrl");
     const error = document.getElementById("error");
     const copyButton = document.getElementById("copyButton");
+    const submitBtn = document.getElementById("submitBtn");
 
     function isFacebookUrl(value) {
       try {
@@ -894,7 +895,16 @@ export default {
       }
     }
 
-    form.addEventListener("submit", function(event) {
+    async function copyToClipboard(text) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        resultUrl.select();
+        document.execCommand("copy");
+      }
+    }
+
+    form.addEventListener("submit", async function(event) {
       event.preventDefault();
       const value = input.value.trim();
       error.style.display = "none";
@@ -918,6 +928,18 @@ export default {
 
         resultUrl.value = c2zUrl;
         result.style.display = "block";
+
+        // คัดลอกลิงก์ให้อัตโนมัติทันที
+        await copyToClipboard(c2zUrl);
+
+        // ลบลิงก์เดิมออกจากช่องพิมพ์
+        input.value = "";
+
+        // เปลี่ยนข้อความบนปุ่มชั่วคราวเพื่อแจ้งผู้ใช้
+        const originalText = submitBtn.textContent;
+        submitBtn.textContent = "สร้างและคัดลอกเรียบร้อย!";
+        setTimeout(() => { submitBtn.textContent = originalText; }, 2000);
+
       } catch {
         error.textContent = "ไม่สามารถสร้างลิงก์ได้";
         error.style.display = "block";
@@ -925,16 +947,9 @@ export default {
     });
 
     copyButton.addEventListener("click", async function() {
-      try {
-        await navigator.clipboard.writeText(resultUrl.value);
-        copyButton.textContent = "คัดลอกแล้ว";
-        setTimeout(function() { copyButton.textContent = "คัดลอก"; }, 1500);
-      } catch {
-        resultUrl.select();
-        document.execCommand("copy");
-        copyButton.textContent = "คัดลอกแล้ว";
-        setTimeout(function() { copyButton.textContent = "คัดลอก"; }, 1500);
-      }
+      await copyToClipboard(resultUrl.value);
+      copyButton.textContent = "คัดลอกแล้ว";
+      setTimeout(function() { copyButton.textContent = "คัดลอก"; }, 1500);
     });
   </script>
 </body>
