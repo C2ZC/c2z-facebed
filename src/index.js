@@ -63,6 +63,57 @@ function isFacebookUrl(value) {
   }
 }
 
+function isInstagramUrl(value) {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    return host === "instagram.com" || host === "www.instagram.com" || host.endsWith(".instagram.com") || host === "instagr.am";
+  } catch {
+    return false;
+  }
+}
+
+function isSupportedUrl(value) {
+  return isFacebookUrl(value) || isInstagramUrl(value);
+}
+
+function isSupportedInstagramPath(pathname) {
+  const path = pathname.replace(/\/+$/, "");
+  return /^\/(p|reel|reels|tv)\/[^/]+$/i.test(path);
+}
+
+async function resolveInstagramEmbed(igUrl) {
+  try {
+    const parsed = new URL(igUrl);
+    const ddUrl = "https://www.ddinstagram.com" + parsed.pathname + parsed.search;
+
+    const response = await fetch(ddUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
+      },
+    });
+
+    const html = await response.text();
+    const pageInfo = inspectFacebookPage(html, ddUrl);
+
+    return {
+      title: pageInfo.title || "Instagram Post",
+      description: pageInfo.description || "Instagram content converted by C2Z",
+      image: pageInfo.image,
+      images: pageInfo.images,
+      videoUrl: getMeta(html, "og:video") || getMeta(html, "og:video:secure_url") || "",
+    };
+  } catch {
+    return {
+      title: "Instagram Post",
+      description: "Instagram content converted by C2Z",
+      image: "",
+      images: [],
+      videoUrl: "",
+    };
+  }
+}
+
 function isSharePath(value) {
   try {
     const url = new URL(value);
@@ -613,7 +664,6 @@ function htmlPage(data) {
   const safeTitle = authorName || title || "Facebook Content";
   const safeDescription = description || "Facebook content converted by C2Z";
 
-  // ฟังก์ชันลบ Query Parameters ของ URL รูปภาพเพื่อเปรียบเทียบรูปซ้ำจริง
   function normalizeImageUrl(url) {
     if (!url) return "";
     try {
@@ -624,7 +674,6 @@ function htmlPage(data) {
     }
   }
 
-  // รวมรูปภาพทั้งหมด ดึงเฉพาะรูปที่ไม่ซ้ำกัน
   const allImages = [];
   const seenNormalized = new Set();
 
@@ -636,19 +685,13 @@ function htmlPage(data) {
     }
   }
 
-  // จัดเตรียมรายการรูปภาพ
-  // - ถ้าเป็นคลิปวิดีโอ: ใช้รูปแรกรูปเดียว
-  // - ถ้ามีแค่ 1 รูป: ส่งรูปเดียว
-  // - ถ้ามีหลายรูปจริง: ส่งได้สูงสุด 10 รูปทำ Gallery
-  const finalImages = videoUrl
-    ? (allImages[0] ? [allImages[0]] : [])
-    : (allImages.length > 0 ? allImages.slice(0, 10) : []);
+  const finalImages = videoUrl ? (allImages[0] ? [allImages[0]] : []) : allImages.length > 0 ? allImages.slice(0, 10) : [];
 
   const ogImagesHtml = finalImages
     .map(
       (img) => `<meta property="og:image" content="${escapeHtml(img)}">
 <meta property="og:image:width" content="1280">
-<meta property="og:image:height" content="720">`
+<meta property="og:image:height" content="720">`,
     )
     .join("\n");
 
@@ -808,25 +851,7 @@ export default {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Facebook Fix Embed by C2Z</title>
-  <meta name="title" content="Facebook Fix Embed by C2Z">
-  <meta name="description" content="สร้างตัวฝังคลิปบน Discord">
-  <meta name="author" content="C2Z">
-  <link rel="icon" type="image/png" href="https://c2z.top/assets/images/avatar.png">
-  <meta name="theme-color" content="#1877F2">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="C2Z">
-  <meta property="og:title" content="Facebook Fix Embed by C2Z">
-  <meta property="og:description" content="สร้างตัวฝังคลิปบน Discord">
-  <meta property="og:url" content="https://c2z.top/">
-  <meta property="og:image" content="https://c2z.top/assets/images/fb_c2z_ogm.png">
-  <meta property="og:logo" content="https://c2z.top/assets/images/avatar.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta property="twitter:domain" content="fb.C2Z.top">
-  <meta property="twitter:url" content="https://fb.C2Z.top">
-  <meta name="twitter:title" content="Facebook Fix Embed by C2Z">
-  <meta name="twitter:description" content="สร้างตัวฝังคลิปบน Discord">
-  <meta name="twitter:image" content="https://c2z.top/assets/images/fb_c2z_ogm.png">
+  <title>Facebook & IG Fix Embed by C2Z</title>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at top, #302b63 0%, #24243e 45%, #151515 100%); color: #ffffff; font-family: Arial, Helvetica, sans-serif; }
@@ -845,25 +870,18 @@ export default {
     .result input { width: 100%; background: #0d0d0d; border-color: #333; }
     .error { display: none; margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: rgba(255, 70, 70, 0.12); color: #ff8585; }
     .hint { margin-top: 22px; color: #888; font-size: 13px; line-height: 1.6; text-align: center; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @media (max-width: 600px) {
-      .container { padding: 24px; }
-      .input-row { flex-direction: column; }
-      button { width: 100%; }
-    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 600px) { .container { padding: 24px; } .input-row { flex-direction: column; } button { width: 100%; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="logo">Facebook Fix Embed by C2Z</div>
-    <div class="subtitle">สร้างตัวฝังคลิปและโพสบน Discord</div>
+    <div class="logo">FB & IG Fix Embed</div>
+    <div class="subtitle">สร้างตัวฝังคลิป Facebook และ Instagram บน Discord</div>
     <form id="form">
-      <label for="facebookUrl">Facebook URL</label>
+      <label for="urlInput">Facebook หรือ Instagram URL</label>
       <div class="input-row">
-        <input id="facebookUrl" type="url" placeholder="https://www.facebook.com/reel/..." autocomplete="off" required>
+        <input id="urlInput" type="url" placeholder="https://www.facebook.com/... หรือ https://www.instagram.com/p/..." autocomplete="off" required>
         <button id="submitBtn" type="submit">สร้างลิงก์</button>
       </div>
     </form>
@@ -872,103 +890,72 @@ export default {
       <div class="result-title">Fix Embed Link</div>
       <input id="resultUrl" type="text" readonly>
     </div>
-    <div class="hint">วางลิงก์ Facebook แล้วกดสร้างลิงก์<br>ระบบจะเปลี่ยนเป็นลิงก์ C2Z และคัดลอกให้อัตโนมัติ</div>
+    <div class="hint">วางลิงก์ FB หรือ IG แล้วกดสร้างลิงก์<br>ระบบจะเปลี่ยนเป็นลิงก์ C2Z และคัดลอกให้อัตโนมัติ</div>
   </div>
 
   <script>
     const form = document.getElementById("form");
-    const input = document.getElementById("facebookUrl");
+    const input = document.getElementById("urlInput");
     const result = document.getElementById("result");
     const resultUrl = document.getElementById("resultUrl");
     const error = document.getElementById("error");
     const submitBtn = document.getElementById("submitBtn");
-
     let hideResultTimer = null;
 
     function isFacebookUrl(value) {
-      try {
-        const url = new URL(value);
-        const host = url.hostname.toLowerCase();
-        return host === "facebook.com" || host === "www.facebook.com" || host.endsWith(".facebook.com") || host === "fb.watch";
-      } catch {
-        return false;
-      }
+      try { const host = new URL(value).hostname.toLowerCase(); return host === "facebook.com" || host === "www.facebook.com" || host.endsWith(".facebook.com") || host === "fb.watch"; } catch { return false; }
     }
+    function isInstagramUrl(value) {
+      try { const host = new URL(value).hostname.toLowerCase(); return host === "instagram.com" || host === "www.instagram.com" || host.endsWith(".instagram.com") || host === "instagr.am"; } catch { return false; }
+    }
+    function isSupportedUrl(value) { return isFacebookUrl(value) || isInstagramUrl(value); }
 
     async function copyToClipboard(text) {
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {
-        resultUrl.select();
-        document.execCommand("copy");
-      }
+      try { await navigator.clipboard.writeText(text); } catch { resultUrl.select(); document.execCommand("copy"); }
     }
 
     form.addEventListener("submit", async function(event) {
       event.preventDefault();
       const value = input.value.trim();
-      error.style.display = "none";
-      result.style.display = "none";
+      error.style.display = "none"; result.style.display = "none";
+      if (hideResultTimer) clearTimeout(hideResultTimer);
 
-      if (hideResultTimer) {
-        clearTimeout(hideResultTimer);
-      }
-
-      if (!isFacebookUrl(value)) {
-        error.textContent = "กรุณาใส่ลิงก์ Facebook ที่ถูกต้อง";
-        error.style.display = "block";
-        return;
+      if (!isSupportedUrl(value)) {
+        error.textContent = "กรุณาใส่ลิงก์ Facebook หรือ Instagram ที่ถูกต้อง";
+        error.style.display = "block"; return;
       }
 
       try {
-        const facebookUrl = new URL(value);
-        let c2zUrl = window.location.origin + facebookUrl.pathname + facebookUrl.search;
-        const groupMatch = facebookUrl.pathname.match(/^\\/groups\\/([^/]+)\\/?$/i);
-        const multiPermalink = facebookUrl.searchParams.get("multi_permalinks");
-
-        if (groupMatch && multiPermalink && /^\\d+$/.test(multiPermalink)) {
-          c2zUrl = window.location.origin + "/groups/" + groupMatch[1] + "/permalink/" + multiPermalink;
+        const targetUrl = new URL(value);
+        let c2zUrl = window.location.origin + targetUrl.pathname + targetUrl.search;
+        
+        if (isFacebookUrl(value)) {
+          const groupMatch = targetUrl.pathname.match(/^\/groups\/([^/]+)\/?$/i);
+          const multiPermalink = targetUrl.searchParams.get("multi_permalinks");
+          if (groupMatch && multiPermalink && /^\d+$/.test(multiPermalink)) {
+            c2zUrl = window.location.origin + "/groups/" + groupMatch[1] + "/permalink/" + multiPermalink;
+          }
         }
 
         resultUrl.value = c2zUrl;
         result.style.display = "block";
-
-        // คัดลอกลิงก์ให้อัตโนมัติ
         await copyToClipboard(c2zUrl);
-
-        // ล้างช่องพิมพ์ลิงก์เดิม
         input.value = "";
 
-        // ซ่อนกล่อง Fix Embed Link หลังผ่านไป 5 วินาที
-        hideResultTimer = setTimeout(() => {
-          result.style.display = "none";
-        }, 5000);
+        hideResultTimer = setTimeout(() => { result.style.display = "none"; }, 5000);
 
-        // เอฟเฟกต์ปุ่มสร้างลิงก์ (เปลี่ยนสีเขียว + เด้ง + ข้อความชัดเจน)
         const originalText = submitBtn.textContent;
         submitBtn.textContent = "✓ คัดลอกลิงก์แล้ว!";
         submitBtn.classList.add("copied");
-
-        setTimeout(() => {
-          submitBtn.textContent = originalText;
-          submitBtn.classList.remove("copied");
-        }, 2000);
-
+        setTimeout(() => { submitBtn.textContent = originalText; submitBtn.classList.remove("copied"); }, 2000);
       } catch {
-        error.textContent = "ไม่สามารถสร้างลิงก์ได้";
-        error.style.display = "block";
+        error.textContent = "ไม่สามารถสร้างลิงก์ได้"; error.style.display = "block";
       }
     });
   </script>
 </body>
 </html>`,
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "text/html; charset=UTF-8",
-            "Cache-Control": "no-store, max-age=0",
-          },
-        },
+        { status: 200, headers: { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-store, max-age=0" } },
       );
     }
 
@@ -1094,6 +1081,37 @@ export default {
         });
       } catch (error) {
         return errorResponse("Internal resolver error", 500);
+      }
+    }
+
+    if (isSupportedInstagramPath(requestUrl.pathname)) {
+      const igUrl = "https://www.instagram.com" + requestUrl.pathname + requestUrl.search;
+
+      if (!isDiscordOrBot) {
+        return Response.redirect(igUrl, 302);
+      }
+
+      try {
+        const igData = await resolveInstagramEmbed(igUrl);
+        return new Response(
+          htmlPage({
+            sourceUrl: igUrl,
+            videoUrl: igData.videoUrl,
+            title: igData.title,
+            description: igData.description,
+            image: igData.image,
+            images: igData.images,
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "text/html; charset=UTF-8",
+              "Cache-Control": "no-store, max-age=0",
+            },
+          },
+        );
+      } catch (error) {
+        return errorResponse("Instagram route error", 500);
       }
     }
 
