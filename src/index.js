@@ -89,16 +89,25 @@ async function resolveInstagramEmbed(igUrl) {
     const ddUrl = "https://www.ddinstagram.com" + cleanPath;
 
     const response = await fetch(ddUrl, {
+      redirect: "follow",
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });
 
     const html = await response.text();
+    const finalUrl = response.url || ddUrl;
+
     const title = getMeta(html, "og:title") || getMeta(html, "twitter:title") || "Instagram Post";
+
     const description = getMeta(html, "og:description") || getMeta(html, "description") || "Instagram content converted by C2Z";
+
     const image = getMeta(html, "og:image") || getMeta(html, "twitter:image") || "";
-    const videoUrl = getMeta(html, "og:video") || getMeta(html, "og:video:secure_url") || getMeta(html, "twitter:player:stream") || "";
+
+    const videoUrl = getMeta(html, "og:video:secure_url") || getMeta(html, "og:video") || getMeta(html, "twitter:player:stream") || "";
+
+    const canonical = makeAbsoluteUrl(getCanonical(html), finalUrl) || getMeta(html, "og:url") || "";
 
     return {
       title,
@@ -106,6 +115,8 @@ async function resolveInstagramEmbed(igUrl) {
       image,
       images: image ? [image] : [],
       videoUrl,
+      canonical,
+      finalUrl,
     };
   } catch {
     return {
@@ -114,6 +125,8 @@ async function resolveInstagramEmbed(igUrl) {
       image: "",
       images: [],
       videoUrl: "",
+      canonical: "",
+      finalUrl: "",
     };
   }
 }
@@ -931,15 +944,53 @@ export default {
 
       try {
         const targetUrl = new URL(value);
-        let c2zUrl = window.location.origin + targetUrl.pathname + targetUrl.search;
-        
-        if (isFacebookUrl(value)) {
-          const groupMatch = targetUrl.pathname.match(/^\\/groups\\/([^/]+)\\/?$/i);
-          const multiPermalink = targetUrl.searchParams.get("multi_permalinks");
-          if (groupMatch && multiPermalink && /^\\d+$/.test(multiPermalink)) {
-            c2zUrl = window.location.origin + "/groups/" + groupMatch[1] + "/permalink/" + multiPermalink;
-          }
-        }
+
+let c2zUrl = window.location.origin + targetUrl.pathname;
+
+// ========================================
+// Instagram
+// ตัด Query / Tracking ออกทั้งหมด
+// เช่น ?utm_source=...&stkn=...
+// ========================================
+
+if (isInstagramUrl(value)) {
+  c2zUrl =
+    window.location.origin +
+    targetUrl.pathname.replace(/\/+$/, "") +
+    "/";
+}
+
+// ========================================
+// Facebook
+// ยังเก็บ Query เอาไว้ เพราะ Facebook
+// บางรูปแบบต้องใช้ query เช่น multi_permalinks
+// ========================================
+
+if (isFacebookUrl(value)) {
+  c2zUrl =
+    window.location.origin +
+    targetUrl.pathname +
+    targetUrl.search;
+
+  const groupMatch =
+    targetUrl.pathname.match(/^\/groups\/([^/]+)\/?$/i);
+
+  const multiPermalink =
+    targetUrl.searchParams.get("multi_permalinks");
+
+  if (
+    groupMatch &&
+    multiPermalink &&
+    /^\d+$/.test(multiPermalink)
+  ) {
+    c2zUrl =
+      window.location.origin +
+      "/groups/" +
+      groupMatch[1] +
+      "/permalink/" +
+      multiPermalink;
+  }
+}
 
         resultUrl.value = c2zUrl;
         result.style.display = "block";
@@ -1091,16 +1142,26 @@ export default {
     if (isSupportedInstagramPath(requestUrl.pathname)) {
       const igUrl = "https://www.instagram.com" + requestUrl.pathname + requestUrl.search;
 
+      // คนเปิดจาก Browser → ส่งกลับ Instagram ตามปกติ
       if (!isDiscordOrBot) {
         return Response.redirect(igUrl, 302);
       }
 
       try {
         const igData = await resolveInstagramEmbed(igUrl);
+
+        // ถ้าเป็น Reel / Video Post
+        // ให้ Discord เรียกผ่าน C2Z ก่อน
+        let discordVideoUrl = "";
+
+        if (igData.videoUrl) {
+          discordVideoUrl = new URL("/ig-video", requestUrl.origin).href + "?url=" + encodeURIComponent(igUrl);
+        }
+
         return new Response(
           htmlPage({
             sourceUrl: igUrl,
-            videoUrl: igData.videoUrl,
+            videoUrl: discordVideoUrl,
             title: igData.title,
             description: igData.description,
             image: igData.image,
@@ -1116,6 +1177,36 @@ export default {
         );
       } catch (error) {
         return errorResponse("Instagram route error", 500);
+      }
+    }
+
+    // ========================================
+    // Instagram Video Resolver
+    // ========================================
+
+    if (requestUrl.pathname === "/ig-video") {
+      const sourceUrl = requestUrl.searchParams.get("url");
+
+      if (!sourceUrl || !isInstagramUrl(sourceUrl)) {
+        return errorResponse("Invalid Instagram URL", 400);
+      }
+
+      try {
+        const igData = await resolveInstagramEmbed(sourceUrl);
+
+        if (!igData.videoUrl) {
+          return errorResponse("Instagram video URL not found", 404);
+        }
+
+        return new Response(null, {
+          status: 302,
+          headers: {
+            Location: igData.videoUrl,
+            "Cache-Control": "no-store, max-age=0",
+          },
+        });
+      } catch (error) {
+        return errorResponse("Instagram video resolver error", 500);
       }
     }
 
