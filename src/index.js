@@ -85,7 +85,8 @@ function isSupportedInstagramPath(pathname) {
 async function resolveInstagramEmbed(igUrl) {
   try {
     const parsed = new URL(igUrl);
-    const ddUrl = "https://www.ddinstagram.com" + parsed.pathname + parsed.search;
+    const cleanPath = parsed.pathname.replace(/\/+$/, "");
+    const ddUrl = "https://www.ddinstagram.com" + cleanPath;
 
     const response = await fetch(ddUrl, {
       headers: {
@@ -94,14 +95,17 @@ async function resolveInstagramEmbed(igUrl) {
     });
 
     const html = await response.text();
-    const pageInfo = inspectFacebookPage(html, ddUrl);
+    const title = getMeta(html, "og:title") || getMeta(html, "twitter:title") || "Instagram Post";
+    const description = getMeta(html, "og:description") || getMeta(html, "description") || "Instagram content converted by C2Z";
+    const image = getMeta(html, "og:image") || getMeta(html, "twitter:image") || "";
+    const videoUrl = getMeta(html, "og:video") || getMeta(html, "og:video:secure_url") || getMeta(html, "twitter:player:stream") || "";
 
     return {
-      title: pageInfo.title || "Instagram Post",
-      description: pageInfo.description || "Instagram content converted by C2Z",
-      image: pageInfo.image,
-      images: pageInfo.images,
-      videoUrl: getMeta(html, "og:video") || getMeta(html, "og:video:secure_url") || "",
+      title,
+      description,
+      image,
+      images: image ? [image] : [],
+      videoUrl,
     };
   } catch {
     return {
@@ -661,8 +665,8 @@ function extractVideoId(url) {
 
 function htmlPage(data) {
   const { sourceUrl, videoUrl, title, authorName, description, image, images = [] } = data;
-  const safeTitle = authorName || title || "Facebook Content";
-  const safeDescription = description || "Facebook content converted by C2Z";
+  const safeTitle = authorName || title || "Social Media Content";
+  const safeDescription = description || "Content converted by C2Z";
 
   function normalizeImageUrl(url) {
     if (!url) return "";
@@ -709,7 +713,7 @@ function htmlPage(data) {
 <meta name="description" content="${escapeHtml(safeDescription)}">
 
 <!-- Open Graph -->
-<meta property="og:site_name" content="Facebook Fix Embed by C2Z">
+<meta property="og:site_name" content="Fix Embed by C2Z">
 <meta property="og:title" content="${escapeHtml(safeTitle)}">
 <meta property="og:description" content="${escapeHtml(safeDescription)}">
 <meta property="og:type" content="${videoUrl ? "video.other" : "article"}">
@@ -930,9 +934,9 @@ export default {
         let c2zUrl = window.location.origin + targetUrl.pathname + targetUrl.search;
         
         if (isFacebookUrl(value)) {
-          const groupMatch = targetUrl.pathname.match(/^\/groups\/([^/]+)\/?$/i);
+          const groupMatch = targetUrl.pathname.match(/^\\/groups\\/([^/]+)\\/?$/i);
           const multiPermalink = targetUrl.searchParams.get("multi_permalinks");
-          if (groupMatch && multiPermalink && /^\d+$/.test(multiPermalink)) {
+          if (groupMatch && multiPermalink && /^\\d+$/.test(multiPermalink)) {
             c2zUrl = window.location.origin + "/groups/" + groupMatch[1] + "/permalink/" + multiPermalink;
           }
         }
